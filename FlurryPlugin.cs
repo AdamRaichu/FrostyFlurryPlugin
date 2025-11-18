@@ -16,6 +16,7 @@ namespace Flurry
             ApplyGenericPatches(logger);
             Harmony.DEBUG = config.HarmonyDebug;
 
+            FileLog.Log("ManagerType: " + App.PluginManager.ManagerType);
             switch (App.PluginManager.ManagerType)
             {
                 case PluginManagerType.Editor:
