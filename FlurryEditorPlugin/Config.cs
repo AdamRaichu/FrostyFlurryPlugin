@@ -3,7 +3,7 @@ using Frosty.Core.Controls.Editors;
 using FrostySdk.Attributes;
 using FrostySdk.IO;
 
-namespace Flurry
+namespace Flurry.Editor
 {
     [DisplayName("Flurry Options")]
     public class FlurryConfig : OptionsExtension

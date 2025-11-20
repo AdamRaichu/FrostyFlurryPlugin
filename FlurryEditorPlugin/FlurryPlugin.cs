@@ -5,7 +5,7 @@ using System;
 using System.Reflection;
 //using Newtonsoft.Json;
 
-namespace Flurry
+namespace Flurry.Editor
 {
     public class HarmonyPatcherAction : StartupAction
     {
@@ -13,7 +13,6 @@ namespace Flurry
         {
             FlurryConfig config = new FlurryConfig();
             config.Load();
-            ApplyGenericPatches(logger);
             Harmony.DEBUG = config.HarmonyDebug;
 
             FileLog.Log("ManagerType: " + App.PluginManager.ManagerType);
@@ -22,33 +21,14 @@ namespace Flurry
                 case PluginManagerType.Editor:
                     ApplyEditorOnlyPatches(logger);
                     break;
-
-                case PluginManagerType.ModManager: 
-                    ApplyManagerOnlyPatches(logger);
-                    break;
             }
-
         };
-
-        private void ApplyGenericPatches(ILogger taskLogger)
-        {
-            taskLogger.Log("[Flurry] Applying generic patches...");
-            var harmony = new Harmony("io.github.adamraichu.frosty.flurry.generic");
-            harmony.PatchCategory("flurry.generic");
-        }
 
         private void ApplyEditorOnlyPatches(ILogger taskLogger)
         {
             taskLogger.Log("[Flurry] Applying editor patches...");
             var harmony = new Harmony("io.github.adamraichu.frosty.flurry.editor");
             harmony.PatchCategory("flurry.editor");
-        }
-
-        private void ApplyManagerOnlyPatches(ILogger taskLogger)
-        {
-            taskLogger.Log("[Flurry] Applying manager patches...");
-            var harmony = new Harmony("io.github.adamraichu.frosty.flurry.manager");
-            harmony.PatchCategory("flurry.manager");
         }
     }
 }

@@ -15,7 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace Flurry.Patches.EditorOnly
+namespace Flurry.Patches
 {
     [HarmonyPatch(typeof(MainWindow))]
     [HarmonyPatch("InitializeComponent")]

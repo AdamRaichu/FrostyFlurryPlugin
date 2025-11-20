@@ -7,11 +7,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Flurry.Patches
+namespace Flurry.Editor.Patches
 {
     [HarmonyPatch(typeof(FrostyAssetEditor))]
     [HarmonyPatch(nameof(FrostyAssetEditor.RegisterToolbarItems))]
-    [HarmonyPatchCategory("flurry.generic")]
+    [HarmonyPatchCategory("flurry.editor")]
     public class FrostyAssetEditor_ViewInstancesPatch
     {
         [HarmonyPostfix]
