@@ -15,9 +15,9 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 | :---: | :---: | :--- | :---: |
 | FrostyCore | N/A | Added a counter to the `View Instances` button that shows how many root objects an asset has. | :white_check_mark: |
 | FrostyModManager | N/A | Add counter to tab titles for available and applied mods. | :grey_question: |
-| FrostyModManager | N/A | Add deselect all button to controls tab. | :grey_question: |
+| FrostyModManager | N/A | Add deselect all button to controls tab. | :white_check_mark: |
 | FrostyEditor | N/A | Add an export button to the toolbar (next to New Project, Open Project, Save Project, and Save Project As). <!-- Maybe also FrostySdk; see changelog --> | :white_check_mark: |
-| FrostyEditor | N/A | Add context menu options to bookmarks tab. | :grey_question: |
+| FrostyEditor | N/A | Add context menu options to bookmarks tab. | :white_check_mark: |
 | FrostyModManager | N/A | Add "applied" state filter from @Skylark13's PR (CadeEvs/FrostyToolsuite#346). | :grey_question: |
 | FrostyModManager | N/A | Add applied mod counter and available mod counter. | :grey_question: |
 | FrostyModManager | N/A | Toggle selected button. | :grey_question: |

@@ -23,16 +23,25 @@ namespace Flurry.Editor
         //[DependsOn("updateCheck")]
         public bool BlueprintEditorTweaks { get; set; } = false;
 
+        [Category("Additional Tweaks")]
+        [DisplayName("Enable Bookmarks Tab Tweaks")]
+        [Description("If you're having issues related to the bookmarks menu, disable this.")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool BookmarksTabTweaks { get; set; } = true;
+
         public override void Load()
         {
             HarmonyDebug = Config.Get<bool>("Flurry.HarmonyDebug", false);
             BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
+            BookmarksTabTweaks = Config.Get<bool>("Flurry.BookmarksTabTweaks", true);
         }
 
         public override void Save()
         {
             Config.Add("Flurry.HarmonyDebug", HarmonyDebug);
             Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
+            Config.Add("Flurry.BookmarksTabTweaks", BookmarksTabTweaks);
             Config.Save();
         }
 
