@@ -27,3 +27,9 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 | FrostyEditor | N/A | Default folder icon for submenus. | :grey_question: |
 | FrostyCore | BlueprintEditorPlugin | Add `Open in Blueprint Editor` button to the pointer ref dropdown in the property grid. | :grey_question: |
 | FrostyEditor | BlueprintEditorPlugin | Add "Open in Blueprint Editor" ToolbarItem to default list. | :grey_question: |
+
+## Credits
+
+### `FlurryManagerPlugin/Images/InvertSelect.png`
+
+<a href="https://www.flaticon.com/free-icons/select" title="select icons">Select icons created by Freepik - Flaticon</a>

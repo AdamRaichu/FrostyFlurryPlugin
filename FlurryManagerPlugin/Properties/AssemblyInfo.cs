@@ -3,8 +3,9 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows;
-using Flurry.Editor;
+using Flurry.Manager;
 using Frosty.Core;
+using Flurry.Editor;
 
 // Setting ComVisible to false makes the types in this assembly not visible
 // to COM components.  If you need to access a type in this assembly from
@@ -23,8 +24,8 @@ using Frosty.Core;
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("4b612468-9b6a-4304-88a5-055c3575eb3d")]
 
-[assembly: PluginDisplayName("Flurry Tweaks (Editor)")]
+[assembly: PluginDisplayName("Flurry Tweaks (Manager)")]
 [assembly: PluginAuthor("AdamRaichu")]
 [assembly: PluginVersion("0.0.0.2")]
-[assembly: RegisterStartupAction(typeof(HarmonyPatcherAction))]
-[assembly: RegisterOptionsExtension(typeof(FlurryEditorConfig), PluginManagerType.Editor)]
+[assembly: RegisterExecutionAction(typeof(HarmonyPatcherManagerHack))]
+[assembly: RegisterOptionsExtension(typeof(FlurryManagerConfig), PluginManagerType.ModManager)]

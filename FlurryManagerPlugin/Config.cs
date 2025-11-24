@@ -5,8 +5,8 @@ using FrostySdk.IO;
 
 namespace Flurry.Editor
 {
-    [DisplayName("Flurry Config (Editor)")]
-    public class FlurryEditorConfig : OptionsExtension
+    [DisplayName("Flurry Config (Manager)")]
+    public class FlurryManagerConfig : OptionsExtension
     {
         [Category("_General")]
         [DisplayName("Harmony Debug Logging")]
@@ -15,24 +15,25 @@ namespace Flurry.Editor
         [EbxFieldMeta(EbxFieldType.Boolean)]
         public bool HarmonyDebug { get; set; } = false;
 
+        /*
         [Category("Additional Tweaks")]
         [DisplayName("Enable Blueprint Editor Tweaks")]
         [Description("Enable this if using the Graph Editor for blueprints.")]
         [Editor(typeof(FrostyBooleanEditor))]
         [EbxFieldMeta(EbxFieldType.Boolean)]
         //[DependsOn("updateCheck")]
-        public bool BlueprintEditorTweaks { get; set; } = false;
+        public bool BlueprintEditorTweaks { get; set; } = false; */
 
         public override void Load()
         {
             HarmonyDebug = Config.Get<bool>("Flurry.HarmonyDebug", false);
-            BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
+            //BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
         }
 
         public override void Save()
         {
             Config.Add("Flurry.HarmonyDebug", HarmonyDebug);
-            Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
+            //Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
             Config.Save();
         }
 

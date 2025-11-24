@@ -11,7 +11,7 @@ namespace Flurry.Editor
     {
         public override Action<ILogger> Action => logger =>
         {
-            FlurryConfig config = new FlurryConfig();
+            FlurryEditorConfig config = new FlurryEditorConfig();
             config.Load();
             Harmony.DEBUG = config.HarmonyDebug;
 

@@ -1,11 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <Configurations>Developer - Debug;Release - Alpha;Release - Beta;Release - Final</Configurations>
     <Platforms>x64</Platforms>
     <TargetFramework>net48</TargetFramework>
-    <AssemblyTitle>FlurryEditorPlugin</AssemblyTitle>
-    <Product>FlurryEditorPlugin</Product>
-	<RootNamespace>Flurry.Editor</RootNamespace>
+    <AssemblyTitle>FlurryManagerPlugin</AssemblyTitle>
+    <Product>FlurryManagerPlugin</Product>
+	<RootNamespace>Flurry.Manager</RootNamespace>
     <Copyright>Copyright © 2025</Copyright>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -50,10 +50,13 @@
     <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostySdk\FrostySdk.csproj">
       <Private>false</Private>
     </ProjectReference>
-	<ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyEditor\FrostyEditor.csproj">
-		<Private>false</Private>
-	</ProjectReference>
+    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyModManager\FrostyModManager.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
+	<ItemGroup>
+		<Resource Include="Images\InvertSelect.png" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<Reference Include="0Harmony">
