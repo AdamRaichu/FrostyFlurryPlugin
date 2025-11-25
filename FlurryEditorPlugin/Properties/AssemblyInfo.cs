@@ -25,6 +25,6 @@ using Frosty.Core;
 
 [assembly: PluginDisplayName("Flurry Tweaks (Editor)")]
 [assembly: PluginAuthor("AdamRaichu")]
-[assembly: PluginVersion("0.0.0.3")]
+[assembly: PluginVersion("0.0.0.4")]
 [assembly: RegisterStartupAction(typeof(HarmonyPatcherAction))]
 [assembly: RegisterOptionsExtension(typeof(FlurryEditorConfig), PluginManagerType.Editor)]
