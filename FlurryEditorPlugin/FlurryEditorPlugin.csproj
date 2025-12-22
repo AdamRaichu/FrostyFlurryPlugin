@@ -56,8 +56,15 @@
   </ItemGroup>
 
 	<ItemGroup>
+		<Resource Include="Images\KyberCog.png" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Reference Include="0Harmony">
 			<HintPath>ThirdParty\0Harmony.dll</HintPath>
+		</Reference>
+		<Reference Include="Newtonsoft.Json">
+		  <HintPath>..\..\FrostyToolsuite\FrostyEditor\ThirdParty\Newtonsoft.Json.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

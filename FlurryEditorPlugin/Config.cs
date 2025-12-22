@@ -30,11 +30,19 @@ namespace Flurry.Editor
         [EbxFieldMeta(EbxFieldType.Boolean)]
         public bool BookmarksTabTweaks { get; set; } = true;
 
+        [Category("Additional Tweaks")]
+        [DisplayName("Enable Kyber Integration")]
+        [Description("If enabled, adds Kyber buttons to the editor UI.")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool KyberIntegration { get; set; } = true;
+
         public override void Load()
         {
             HarmonyDebug = Config.Get<bool>("Flurry.HarmonyDebug", false);
             BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
             BookmarksTabTweaks = Config.Get<bool>("Flurry.BookmarksTabTweaks", true);
+            KyberIntegration = Config.Get<bool>("Flurry.KyberIntegration", true);
         }
 
         public override void Save()
@@ -42,6 +50,7 @@ namespace Flurry.Editor
             Config.Add("Flurry.HarmonyDebug", HarmonyDebug);
             Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
             Config.Add("Flurry.BookmarksTabTweaks", BookmarksTabTweaks);
+            Config.Add("Flurry.KyberIntegration", KyberIntegration);
             Config.Save();
         }
 

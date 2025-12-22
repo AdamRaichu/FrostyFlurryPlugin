@@ -23,6 +23,6 @@ using Frosty.Core;
 
 [assembly: PluginDisplayName("Flurry Tweaks (Manager)")]
 [assembly: PluginAuthor("AdamRaichu")]
-[assembly: PluginVersion("0.0.0.4")]
+[assembly: PluginVersion("0.0.0.5")]
 [assembly: RegisterExecutionAction(typeof(HarmonyPatcherManagerHack))]
 [assembly: RegisterOptionsExtension(typeof(FlurryManagerConfig), PluginManagerType.ModManager)]

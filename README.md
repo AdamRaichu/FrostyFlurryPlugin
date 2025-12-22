@@ -23,10 +23,19 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 | FrostyModManager | N/A | Toggle selected button. | :grey_question: |
 | FrostyModManager | N/A | Add "Copy to Clipboard" button for the Affected Files list. | :grey_question: |
 | FrostyModManager | N/A | Hide the screenshots menu if there are no screenshots in the mod (to make use of all available space). | :grey_question: |
-| FrostyCore | FrostyEditor | Port/modify the launch window for Kyber from Mophead's fork. | :grey_question: |
+| FrostyCore | FrostyEditor | Port/modify the launch window for Kyber from Mophead's fork. | :white_check_mark: |
 | FrostyEditor | N/A | Default folder icon for submenus. | :grey_question: |
-| FrostyCore | BlueprintEditorPlugin | Add `Open in Blueprint Editor` button to the pointer ref dropdown in the property grid. | :grey_question: |
-| FrostyEditor | BlueprintEditorPlugin | Add "Open in Blueprint Editor" ToolbarItem to default list. | :grey_question: |
+| FrostyCore | BlueprintEditorPlugin | Add `Open in Blueprint Editor` button to the pointer ref dropdown in the property grid. | :white_check_mark: |
+| FrostyEditor | BlueprintEditorPlugin | Add "Open in Blueprint Editor" ToolbarItem to default list. | :white_check_mark: |
+| ReferencesPlugin | BlueprintEditorPlugin | Add `Open in Blueprint Editor` context menu option. | :grey_question: |
+| ReferencesPlugin | N/A | Add `Copy GUID` context menu option. | :grey_question: |
+| ReferencesPlugin | N/A | Add images to context menu options that did not previously have them. | :grey_question: |
+| ReferencesPlugin | N/A | Add `Display Reference Details` from Mophead's fork. | :grey_question: |
+| ReferencesPlugin | N/A | Add `Copy file path` context menu option | :grey_question: |
+| ReferencesPlugin | N/A | Add counter for how many files are referenced. | :grey_question: |
+| BundleEditorPlugin | N/A | Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`. | :grey_question: |
+| ReferencesPlugin | N/A | Add options to hide MVDBs and NetRegs from the "references to ___" list. | :grey_question: |
+| FrostyEditor | N/A | Autosave on export. | :grey_question: |
 
 ## Credits
 
