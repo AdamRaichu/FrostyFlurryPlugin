@@ -15,6 +15,20 @@ namespace Flurry.Editor
         [EbxFieldMeta(EbxFieldType.Boolean)]
         public bool HarmonyDebug { get; set; } = false;
 
+        [Category("zz__Meta__DoNotEdit")]
+        [IsHidden()]
+        public bool HasAcknowledgedStartupMessage { get; set; } = false;
+        [Category("zz__Meta__DoNotEdit")]
+        [IsHidden()]
+        public int LastChangelogViewed { get; set; } = -1;
+
+        [Category("_General")]
+        [DisplayName("Autosave on Export")]
+        [Description("Create a backup of your project file when exporting a mod (includes kyber launch).")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool AutosaveOnExport { get; set; } = true;
+
         [Category("Additional Tweaks")]
         [DisplayName("Enable Blueprint Editor Tweaks")]
         [Description("Enable this if using the Graph Editor for blueprints.")]
@@ -40,6 +54,8 @@ namespace Flurry.Editor
         public override void Load()
         {
             HarmonyDebug = Config.Get<bool>("Flurry.HarmonyDebug", false);
+            HasAcknowledgedStartupMessage = Config.Get<bool>("Flurry.HasAcknowledgedStartupMessage", false);
+            AutosaveOnExport = Config.Get<bool>("Flurry.AutosaveOnExport", true);
             BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
             BookmarksTabTweaks = Config.Get<bool>("Flurry.BookmarksTabTweaks", true);
             KyberIntegration = Config.Get<bool>("Flurry.KyberIntegration", true);
@@ -48,6 +64,8 @@ namespace Flurry.Editor
         public override void Save()
         {
             Config.Add("Flurry.HarmonyDebug", HarmonyDebug);
+            Config.Add("Flurry.HasAcknowledgedStartupMessage", HasAcknowledgedStartupMessage);
+            Config.Add("Flurry.AutosaveOnExport", AutosaveOnExport);
             Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
             Config.Add("Flurry.BookmarksTabTweaks", BookmarksTabTweaks);
             Config.Add("Flurry.KyberIntegration", KyberIntegration);

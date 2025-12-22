@@ -374,6 +374,30 @@ namespace Flurry.Editor.Patches
         }
 
 
+        [HarmonyPatch("ExportMod")]
+        [HarmonyPostfix]
+        public static void AutosaveOnExport(MainWindow __instance)
+        {
+            FlurryEditorConfig config = new FlurryEditorConfig();
+            config.Load();
+            if (config.AutosaveOnExport)
+            {
+                if (__instance is MainWindow win)
+                {
+                    FrostyProject project = win.Project;
+                    if (project.IsDirty)
+                    {
+                        string name = project.DisplayName.Replace(".fbproject", "");
+                        DateTime timeStamp = DateTime.Now;
+
+                        string targetName = "Autosave/Export/" + name + "_" + timeStamp.Day.ToString("D2") + timeStamp.Month.ToString("D2") + timeStamp.Year.ToString("D4") + "_" + timeStamp.Hour.ToString("D2") + timeStamp.Minute.ToString("D2") + timeStamp.Second.ToString("D2") + ".fbproject";
+                        App.Logger.Log($"Autosaving project to Autosave/Export/{name}_{targetName}");
+                        project.Save(overrideFilename: targetName, updateDirtyState: false);
+                    }
+                }
+            }
+        }
+
         [HarmonyPatch("LoadTabExtensions")]
         [HarmonyPostfix]
         public static void BookmarksMenuChanges(MainWindow __instance) {

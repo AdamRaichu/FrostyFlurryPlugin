@@ -20,6 +20,7 @@
                 <Grid Margin="5" DockPanel.Dock="Top">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Image Source="../Images/KyberCog.png"
+							RenderOptions.BitmapScalingMode="Fant"
                             Width="28" />
                         <Label Content="Kyber Launcher Options" FontFamily="Global User Interface" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontSize="14"/>
                     </StackPanel>
