@@ -35,7 +35,7 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 | ReferencesPlugin | N/A | Add counter for how many files are referenced. | :grey_question: |
 | BundleEditorPlugin | N/A | Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`. | :grey_question: |
 | ReferencesPlugin | N/A | Add options to hide MVDBs and NetRegs from the "references to ___" list. | :grey_question: |
-| FrostyEditor | N/A | Autosave on export. | :grey_question: |
+| FrostyEditor | N/A | Autosave on export. | :white_check_mark: |
 
 ## Credits
 
