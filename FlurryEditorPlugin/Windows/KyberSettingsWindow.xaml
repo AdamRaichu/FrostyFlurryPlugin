@@ -36,6 +36,11 @@
                         </DockPanel>
                         <DockPanel LastChildFill="True">
                             <Label Content="Load Order " FontFamily="Global User Interface" Width="125"/>
+							<Button Click="EditLoadOrder_click">
+								<Image Source="../Images/Pencil.png"
+									   RenderOptions.BitmapScalingMode="Fant"
+                                       Width="14"/>
+							</Button>
                             <ComboBox x:Name="loadOrderComboBox" VerticalContentAlignment="Center" Margin="1" BorderThickness="1"/>
                         </DockPanel>
                         <DockPanel LastChildFill="True">

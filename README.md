@@ -42,3 +42,9 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 ### `FlurryManagerPlugin/Images/InvertSelect.png`
 
 <a href="https://www.flaticon.com/free-icons/select" title="select icons">Select icons created by Freepik - Flaticon</a>
+
+### `FlurryEditorPlugin/Images/Pencil.png`
+
+<a href="https://www.freepik.com/icon/pencils_2829958#fromView=search&page=1&position=67&uuid=886e8a07-9119-44d4-8da2-451df209b38a">Icon by Freepik</a>
+
+Image is color inverted.

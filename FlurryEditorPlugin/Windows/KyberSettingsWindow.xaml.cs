@@ -1,4 +1,5 @@
-﻿using Frosty.Controls;
+﻿using Flurry.Editor.Editors;
+using Frosty.Controls;
 using Frosty.Core;
 using FrostySdk.Ebx;
 using FrostySdk.Managers;
@@ -239,6 +240,13 @@ namespace Flurry.Editor.Windows
 
             DialogResult = true;
             Close();
+        }
+
+        private void EditLoadOrder_click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            DialogResult = false;
+            Close();
+            App.EditorWindow.OpenEditor("[Flurry] Kyber Overrides Editor", new KyberLaunchOverridesEditor());
         }
     }
 }

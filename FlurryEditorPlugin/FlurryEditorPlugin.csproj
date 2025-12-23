@@ -57,6 +57,7 @@
 
 	<ItemGroup>
 		<Resource Include="Images\KyberCog.png" />
+		<Resource Include="Images\Pencil.png" />
 	</ItemGroup>
 
 	<ItemGroup>
