@@ -53,6 +53,9 @@
 	<ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyEditor\FrostyEditor.csproj">
 		<Private>false</Private>
 	</ProjectReference>
+	<ProjectReference Include="D:\Frosty\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj">
+		<Private>false</Private>
+	</ProjectReference>
   </ItemGroup>
 
 	<ItemGroup>

@@ -45,6 +45,13 @@ namespace Flurry.Editor
         public bool BookmarksTabTweaks { get; set; } = true;
 
         [Category("Additional Tweaks")]
+        [DisplayName("Enable References Tab Tweaks")]
+        [Description("If you're having issues related to the references tab, disable this.")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool ReferencesTabTweaks { get; set; } = true;
+
+        [Category("Additional Tweaks")]
         [DisplayName("Enable Kyber Integration")]
         [Description("If enabled, adds Kyber buttons to the editor UI.")]
         [Editor(typeof(FrostyBooleanEditor))]
