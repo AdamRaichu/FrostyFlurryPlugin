@@ -27,12 +27,12 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 | FrostyEditor | N/A | Default folder icon for submenus. | :grey_question: |
 | FrostyCore | BlueprintEditorPlugin | Add `Open in Blueprint Editor` button to the pointer ref dropdown in the property grid. | :white_check_mark: |
 | FrostyEditor | BlueprintEditorPlugin | Add "Open in Blueprint Editor" ToolbarItem to default list. | :white_check_mark: |
-| ReferencesPlugin | BlueprintEditorPlugin | Add `Open in Blueprint Editor` context menu option. | :grey_question: |
-| ReferencesPlugin | N/A | Add `Copy GUID` context menu option. | :grey_question: |
-| ReferencesPlugin | N/A | Add images to context menu options that did not previously have them. | :grey_question: |
+| ReferencesPlugin | BlueprintEditorPlugin | Add `Open in Blueprint Editor` context menu option. | :white_check_mark: |
+| ReferencesPlugin | N/A | Add `Copy GUID` context menu option. | :white_check_mark: |
+| ReferencesPlugin | N/A | Add images to context menu options that did not previously have them. | :white_check_mark: |
 | ReferencesPlugin | N/A | Add `Display Reference Details` from Mophead's fork. | :grey_question: |
-| ReferencesPlugin | N/A | Add `Copy file path` context menu option | :grey_question: |
-| ReferencesPlugin | N/A | Add counter for how many files are referenced. | :grey_question: |
+| ReferencesPlugin | N/A | Add `Copy file path` context menu option | :white_check_mark: |
+| ReferencesPlugin | N/A | Add counter for how many files are referenced. | :white_check_mark: |
 | BundleEditorPlugin | N/A | Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`. | :grey_question: |
 | ReferencesPlugin | N/A | Add options to hide MVDBs and NetRegs from the "references to ___" list. | :grey_question: |
 | FrostyEditor | N/A | Autosave on export. | :white_check_mark: |

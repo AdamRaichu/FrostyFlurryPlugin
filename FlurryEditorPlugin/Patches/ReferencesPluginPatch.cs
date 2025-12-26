@@ -1,4 +1,5 @@
-﻿using Frosty.Core;
+﻿using Frosty.Controls;
+using Frosty.Core;
 using Frosty.Core.Controls;
 using FrostySdk.Managers;
 using HarmonyLib;
@@ -23,6 +24,29 @@ namespace Flurry.Editor.Patches
         private static AccessTools.FieldRef<ReferenceTabItem, MenuItem> explorerFromFindItem_ref = AccessTools.FieldRefAccess<ReferenceTabItem, MenuItem>("refExplorerFromFindItem");
         private static AccessTools.FieldRef<ReferenceTabItem, FrostyAssetListView> refToList_ref = AccessTools.FieldRefAccess<ReferenceTabItem, FrostyAssetListView>("refExplorerToList");
         private static AccessTools.FieldRef<ReferenceTabItem, FrostyAssetListView> refFromList_ref = AccessTools.FieldRefAccess<ReferenceTabItem, FrostyAssetListView>("refExplorerFromList");
+
+        [HarmonyPatch("RefreshReferences")]
+        [HarmonyPostfix]
+        public static void ReferenceCounter(ReferenceTabItem __instance)
+        {
+            FrostyAssetListView refExplorerToList = refToList_ref(__instance);
+            FrostyAssetListView refExplorerFromList = refFromList_ref(__instance);
+
+            if (refExplorerToList.ItemsSource == null || refExplorerFromList.ItemsSource == null)
+                return;
+
+            foreach (var item in App.EditorWindow.MiscTabControl.Items)
+            {
+                if (item is FrostyTabItem)
+                {
+                    FrostyTabItem tab = item as FrostyTabItem;
+                    if (tab.Header.ToString().Contains("References"))
+                    {
+                        tab.Header = $"References ({Enumerable.Count((IEnumerable<EbxAssetEntry>)refExplorerToList.ItemsSource)} & {Enumerable.Count((IEnumerable<EbxAssetEntry>)refExplorerFromList.ItemsSource)})";
+                    }
+                }
+            }
+        }
 
         [HarmonyPatch("OnApplyTemplate")]
         [HarmonyPostfix]
