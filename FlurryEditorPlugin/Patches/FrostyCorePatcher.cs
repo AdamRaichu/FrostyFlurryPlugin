@@ -71,38 +71,38 @@ namespace Flurry.Editor.Patches
                 return;
             }
 
-            FileLog.Log("Inserting Blueprint Editor Button");
+            FileLog.Debug("Inserting Blueprint Editor Button");
             ComboBox popup = popupRef(__instance);
-            FileLog.Log("Found popup ComboBox");
+            FileLog.Debug("Found popup ComboBox");
             Popup popupMenu = (popup.Template.FindName("PART_PopupMenu", popup) as Popup);
-            FileLog.Log("Found popup menu Popup");
+            FileLog.Debug("Found popup menu Popup");
             Button findButton = (popupMenu.FindName("PART_FindButton") as Button);
-            FileLog.Log("Found find button");
+            FileLog.Debug("Found find button");
             //Button findButton = findButtonRef(__instance);
             StackPanel parent = findButton.Parent as StackPanel;
 
-            FileLog.Log("Found parent StackPanel, inserting button");
+            FileLog.Debug("Found parent StackPanel, inserting button");
 
             blueprintEditorButton.Style = __instance.FindResource("MenuButtonStyle") as Style;
-            FileLog.Log("Set button style");
+            FileLog.Debug("Set button style");
             if (findButtonClickHandler != null)
             {
                 blueprintEditorButton.Click -= findButtonClickHandler;
             }
             findButtonClickHandler = (s, e) => { BlueprintEditorButton_Click(s, e, __instance); };
             blueprintEditorButton.Click += findButtonClickHandler;
-            FileLog.Log("Set button click event");
+            FileLog.Debug("Set button click event");
             PointerRef ptrRef = (PointerRef)__instance.Value;
             blueprintEditorButton.IsEnabled = !(ptrRef.Type == PointerRefType.Internal || ptrRef.Type == PointerRefType.Null);
-            FileLog.Log("Set button enabled state");
+            FileLog.Debug("Set button enabled state");
 
             if (blueprintEditorButton.Parent != null)
             {
                 (blueprintEditorButton.Parent as Panel).Children.Remove(blueprintEditorButton);
-                FileLog.Log("Removed button from previous parent");
+                FileLog.Debug("Removed button from previous parent");
             }
             parent.Children.Insert(3, blueprintEditorButton);
-            FileLog.Log("Inserted button into popup menu");
+            FileLog.Debug("Inserted button into popup menu");
         }
 
         private static void BlueprintEditorButton_Click(object sender, RoutedEventArgs e, FrostyPointerRefControl instance)

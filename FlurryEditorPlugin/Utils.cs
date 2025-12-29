@@ -32,21 +32,21 @@ namespace Flurry.Editor
 
                 Type blueprintEditorType = System.Type.GetType("BlueprintEditorPlugin.BlueprintEditor, BlueprintEditorPlugin");
 
-                FileLog.Log("Opening Blueprint Editor for " + entry.Filename);
+                FileLog.Debug("Opening Blueprint Editor for " + entry.Filename);
 
                 dynamic editor;
                 if ((bool)editorOptionsTraverse.Property("LoadBeforeOpen").GetValue())
                 {
-                    FileLog.Log("Using parameterless constructor and LoadBlueprint");
+                    FileLog.Debug("Using parameterless constructor and LoadBlueprint");
                     editor = Activator.CreateInstance(blueprintEditorType);
-                    FileLog.Log("Calling LoadBlueprint");
+                    FileLog.Debug("Calling LoadBlueprint");
                     editor.LoadBlueprint(entry, iEbxGraphEditor);
-                    FileLog.Log("LoadBlueprint call complete");
+                    FileLog.Debug("LoadBlueprint call complete");
                 }
                 else
                 {
                     //editor = new BlueprintEditor(App.SelectedAsset, iEbxGraphEditor);
-                    FileLog.Log("Using constructor with parameters (EbxAssetEntry, IEbxGraphEditor)");
+                    FileLog.Debug("Using constructor with parameters (EbxAssetEntry, IEbxGraphEditor)");
                     editor = Activator.CreateInstance(blueprintEditorType, new object[] { entry, iEbxGraphEditor });
                 }
 

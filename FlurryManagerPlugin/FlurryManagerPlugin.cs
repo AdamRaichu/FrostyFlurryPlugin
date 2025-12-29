@@ -12,11 +12,11 @@ namespace Flurry.Manager
             Harmony.DEBUG = config.HarmonyDebug;
             if (App.PluginManager.ManagerType != PluginManagerType.ModManager)
             {
-                FileLog.Log("[Flurry] Skipping manager patches (not in Mod Manager)...");
+                FileLog.Debug("[Flurry] Skipping manager patches (not in Mod Manager)...");
                 return;
             }
             var harmony = new Harmony("io.github.adamraichu.frosty.flurry.manager");
-            FileLog.Log("[Flurry] Applying manager patches...");
+            FileLog.Debug("[Flurry] Applying manager patches...");
             harmony.PatchCategory("flurry.manager");
         }
     }

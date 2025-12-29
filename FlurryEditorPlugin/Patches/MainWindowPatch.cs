@@ -402,25 +402,25 @@ namespace Flurry.Editor.Patches
         [HarmonyPostfix]
         public static void BookmarksMenuChanges(MainWindow __instance) {
 
-            FileLog.Log("BookmarksMenuChanges Patch Applied");
+            FileLog.Debug("BookmarksMenuChanges Patch Applied");
             FlurryEditorConfig config = new FlurryEditorConfig();
             config.Load();
 
-            FileLog.Log("Post config load");
+            FileLog.Debug("Post config load");
             ImageSourceConverter imageSourceConverter = new ImageSourceConverter();
 
             #region Bookmarks modifications
             if (config.BookmarksTabTweaks)
             {
-                FileLog.Log("Applying bookmarks tweaks");
+                FileLog.Debug("Applying bookmarks tweaks");
                 ContextMenu bookmarksContextMenu = __instance.FindResource("bookmarksContextMenu") as ContextMenu;
-                FileLog.Log("Context menu found");
+                FileLog.Debug("Context menu found");
 
                 // Open asset (modify)
                 MenuItem openAssetOption = bookmarksContextMenu.Items.GetItemAt(0) as MenuItem;
                 (openAssetOption.Icon as Image).Opacity = 0.5;
 
-                FileLog.Log("Open asset modified");
+                FileLog.Debug("Open asset modified");
 
                 // Find in explorer (modify)
                 MenuItem findInExplorerOption = bookmarksContextMenu.Items.GetItemAt(1) as MenuItem;
@@ -432,7 +432,7 @@ namespace Flurry.Editor.Patches
                 RenderOptions.SetBitmapScalingMode(findInExplorerImage, BitmapScalingMode.Fant);
                 findInExplorerOption.Icon = findInExplorerImage;
 
-                FileLog.Log("Find in explorer modified");
+                FileLog.Debug("Find in explorer modified");
 
 
                 TreeView BookmarkTreeView = BookmarkTreeViewRef(__instance);

@@ -26,7 +26,7 @@ namespace Flurry.Editor.Patches
         [HarmonyPostfix]
         public static void FilterGuidContextMenuButton(FrostyPropertyGridItem __instance)
         {
-            FileLog.Log("[Flurry] Patching FrostyPropertyGridItem context menu for Filter Guid option.");
+            FileLog.Debug("[Flurry] Patching FrostyPropertyGridItem context menu for Filter Guid option.");
             FrostyPropertyGridItemData item = (FrostyPropertyGridItemData)__instance.DataContext;
             if (!item.IsPointerRef)
             {
@@ -37,7 +37,7 @@ namespace Flurry.Editor.Patches
             {
                 var menuItem = __instance.ContextMenu.Items[i] as MenuItem;
                 if (!(menuItem is MenuItem)) continue;
-                FileLog.Log("[Flurry] Found context menu item: " + menuItem.Header.ToString());
+                FileLog.Debug("[Flurry] Found context menu item: " + menuItem.Header.ToString());
                 if (menuItem != null && menuItem.Header.ToString() == "Copy Guid")
                 {
                     //menuItem.Visibility = System.Windows.Visibility.Collapsed;

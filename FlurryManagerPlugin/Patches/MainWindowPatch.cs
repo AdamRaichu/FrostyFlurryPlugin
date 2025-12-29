@@ -29,7 +29,7 @@ namespace Flurry.Manager.Patches
         [HarmonyPatch("LoadMenuExtensions")]
         [HarmonyPostfix]
         public static void AddInvertButton(MainWindow __instance) {
-            FileLog.Log("Within PostFix");
+            FileLog.Debug("Within PostFix");
             App.Logger.Log("Adding Invert Selection Button to Mod Manager UI");
             Button removeButton = removeButtonRef(__instance);
             StackPanel parentPanel = (StackPanel)removeButton.Parent;
