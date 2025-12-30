@@ -52,6 +52,13 @@ namespace Flurry.Editor
         public bool ReferencesTabTweaks { get; set; } = true;
 
         [Category("Additional Tweaks")]
+        [DisplayName("Enable Bundles Tab Tweaks")]
+        [Description("If you're having issues related to the bundles tab, disable this.")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool BundlesTabTweaks { get; set; } = true;
+
+        [Category("Additional Tweaks")]
         [DisplayName("Enable Kyber Integration")]
         [Description("If enabled, adds Kyber buttons to the editor UI.")]
         [Editor(typeof(FrostyBooleanEditor))]
@@ -65,6 +72,8 @@ namespace Flurry.Editor
             AutosaveOnExport = Config.Get<bool>("Flurry.AutosaveOnExport", true);
             BlueprintEditorTweaks = Config.Get<bool>("Flurry.BlueprintEditorTweaks", false);
             BookmarksTabTweaks = Config.Get<bool>("Flurry.BookmarksTabTweaks", true);
+            ReferencesTabTweaks = Config.Get<bool>("Flurry.ReferencesTabTweaks", true);
+            BundlesTabTweaks = Config.Get<bool>("Flurry.BundlesTabTweaks", true);
             KyberIntegration = Config.Get<bool>("Flurry.KyberIntegration", true);
         }
 
@@ -75,6 +84,8 @@ namespace Flurry.Editor
             Config.Add("Flurry.AutosaveOnExport", AutosaveOnExport);
             Config.Add("Flurry.BlueprintEditorTweaks", BlueprintEditorTweaks);
             Config.Add("Flurry.BookmarksTabTweaks", BookmarksTabTweaks);
+            Config.Add("Flurry.ReferencesTabTweaks", ReferencesTabTweaks);
+            Config.Add("Flurry.BundlesTabTweaks", BundlesTabTweaks);
             Config.Add("Flurry.KyberIntegration", KyberIntegration);
             Config.Save();
         }

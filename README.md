@@ -24,9 +24,10 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 - [ ] Add `Display Reference Details` from Mophead's fork.
 - [x] Add `Copy file path` context menu option.
 - [x] Add counter for how many files are referenced.
-- [ ] Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`.
+- [x] Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`.
 - [ ] Add options to hide MVDBs and NetRegs from the "references to ___" list.
 - [x] Autosave on export.
+- [ ] Exception box improvements. (InnerExceptions, plugins list + file hashes)
 
 ### Mod Manager
 

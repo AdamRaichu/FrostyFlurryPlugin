@@ -30,6 +30,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Meta", "Meta", "{8EC462FD-D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReferencesPlugin", "..\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj", "{6EF69F92-572B-1C6B-388D-1E105A83315A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BundleEditorPlugin", "..\FrostyToolsuite\Plugins\BundleEditorPlugin\BundleEditorPlugin.csproj", "{34F6D1E2-A327-710E-E94D-FFB447802B77}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Developer - Debug|x64 = Developer - Debug|x64
@@ -186,6 +188,22 @@ Global
 		{6EF69F92-572B-1C6B-388D-1E105A83315A}.Release - Final|x64.Build.0 = Release - Final|x64
 		{6EF69F92-572B-1C6B-388D-1E105A83315A}.Release - Final|x86.ActiveCfg = Release - Final|x64
 		{6EF69F92-572B-1C6B-388D-1E105A83315A}.Release - Final|x86.Build.0 = Release - Final|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Developer - Debug|x64.ActiveCfg = Developer - Debug|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Developer - Debug|x64.Build.0 = Developer - Debug|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Developer - Debug|x86.ActiveCfg = Developer - Debug|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Developer - Debug|x86.Build.0 = Developer - Debug|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Alpha|x64.ActiveCfg = Release - Alpha|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Alpha|x64.Build.0 = Release - Alpha|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Alpha|x86.ActiveCfg = Release - Alpha|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Alpha|x86.Build.0 = Release - Alpha|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Beta|x64.ActiveCfg = Release - Beta|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Beta|x64.Build.0 = Release - Beta|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Beta|x86.ActiveCfg = Release - Beta|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Beta|x86.Build.0 = Release - Beta|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Final|x64.ActiveCfg = Release - Final|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Final|x64.Build.0 = Release - Final|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Final|x86.ActiveCfg = Release - Final|x64
+		{34F6D1E2-A327-710E-E94D-FFB447802B77}.Release - Final|x86.Build.0 = Release - Final|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -198,6 +216,7 @@ Global
 		{355B078B-45A5-472D-9CCD-688D8E30BAED} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{B72B292F-1309-4205-A3FC-3E4EA584CDE8} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{6EF69F92-572B-1C6B-388D-1E105A83315A} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{34F6D1E2-A327-710E-E94D-FFB447802B77} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5BC4B651-BCAE-477B-B114-B463A05A21A3}
