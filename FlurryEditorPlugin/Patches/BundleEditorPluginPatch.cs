@@ -37,6 +37,7 @@ namespace Flurry.Editor.Patches
                         if (entry == null)
                         {
                             tab.Header = "Bundles (0 + 0)";
+                            return;
                         }
                         tab.Header = $"Bundles ({entry.Bundles.Count} + {entry.AddedBundles.Count})";
                     }
