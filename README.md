@@ -15,7 +15,7 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 - [x] Add an export button to the toolbar (next to New Project, Open Project, Save Project, and Save Project As). <!-- Maybe also FrostySdk; see changelog -->
 - [x] Add context menu options to bookmarks tab.
 - [x] Port/modify the launch window for Kyber from Mophead's fork.
-- [ ] Allow plugins to register icons for submenu folders.
+- [x] Allow plugins to register icons for submenu folders.
 - [x] Add `Open in Blueprint Editor` button to the pointer ref dropdown in the property grid.
 - [x] Add "Open in Blueprint Editor" ToolbarItem to default list.
 - [x] Add `Open in Blueprint Editor` context menu option.

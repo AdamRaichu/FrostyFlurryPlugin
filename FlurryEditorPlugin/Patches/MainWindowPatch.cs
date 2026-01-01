@@ -38,6 +38,7 @@ namespace Flurry.Editor.Patches
         private static AccessTools.FieldRef<MainWindow, Grid> mainGridRef = AccessTools.FieldRefAccess<MainWindow, Grid>("mainGrid");
         private static AccessTools.FieldRef<MainWindow, TreeView> BookmarkTreeViewRef = AccessTools.FieldRefAccess<MainWindow, TreeView>("BookmarkTreeView");
         private static AccessTools.FieldRef<MainWindow, Button> launchButtonRef = AccessTools.FieldRefAccess<MainWindow, Button>("launchButton");
+        private static AccessTools.FieldRef<MainWindow, Menu> menuRef = AccessTools.FieldRefAccess<MainWindow, Menu>("menu");
 
         // Patches: Extra export button
 
@@ -128,9 +129,10 @@ namespace Flurry.Editor.Patches
             // Attach Click event handler
             // Note: The method 'kyberLaunchButton_Click' must be defined in the same class.
             // Assuming the event handler signature is: void kyberLaunchButton_Click(object sender, RoutedEventArgs e)
-             kyberLaunchButton.Click += (s, e) => {
-                 kyberLaunchButton_Click(s, e, instance);
-             };
+            kyberLaunchButton.Click += (s, e) =>
+            {
+                kyberLaunchButton_Click(s, e, instance);
+            };
 
             // Create Content for kyberLaunchButton
             StackPanel kyberLaunchButtonContent = new StackPanel();
@@ -167,10 +169,11 @@ namespace Flurry.Editor.Patches
             // Attach Click event handler
             // Note: The method 'kyberSettingsButton_Click' must be defined in the same class.
             // Assuming the event handler signature is: void kyberSettingsButton_Click(object sender, RoutedEventArgs e)
-             kyberSettingsButton.Click += (s, e) => {
-                 Windows.KyberSettingsWindow win = new Windows.KyberSettingsWindow(KyberIntegration.GetKyberJsonSettings());
-                 win.ShowDialog();
-             };
+            kyberSettingsButton.Click += (s, e) =>
+            {
+                Windows.KyberSettingsWindow win = new Windows.KyberSettingsWindow(KyberIntegration.GetKyberJsonSettings());
+                win.ShowDialog();
+            };
 
             // Create Content for kyberSettingsButton
             StackPanel kyberSettingsButtonContent = new StackPanel();
@@ -367,7 +370,7 @@ namespace Flurry.Editor.Patches
             FrostyTaskWindow.Show("Completing", "", (task) =>
             {
                 //foreach (ExportActionOverride exportAction in actions)
-                    //exportAction.PostExport(task, ExportType.KyberLaunchOnly, editorModPath, loadOrderModPaths);
+                //exportAction.PostExport(task, ExportType.KyberLaunchOnly, editorModPath, loadOrderModPaths);
             });
 
             GC.Collect();
@@ -400,7 +403,8 @@ namespace Flurry.Editor.Patches
 
         [HarmonyPatch("LoadTabExtensions")]
         [HarmonyPostfix]
-        public static void BookmarksMenuChanges(MainWindow __instance) {
+        public static void BookmarksMenuChanges(MainWindow __instance)
+        {
 
             FileLog.Debug("BookmarksMenuChanges Patch Applied");
             FlurryEditorConfig config = new FlurryEditorConfig();
@@ -473,13 +477,15 @@ namespace Flurry.Editor.Patches
                 // Copy file path (add)
                 MenuItem copyFilePathOption = new MenuItem()
                 {
-                    Icon = new Image() { 
+                    Icon = new Image()
+                    {
                         Source = imageSourceConverter.ConvertFromString("pack://application:,,,/FrostyCore;component/Images/Copy.png") as ImageSource,
                         Opacity = 0.5
                     },
                     Header = "Copy file path"
                 };
-                copyFilePathOption.Click += (sender, e) => {
+                copyFilePathOption.Click += (sender, e) =>
+                {
                     if (BookmarkTreeView.SelectedItem == null)
                         return;
                     BookmarkItem target = BookmarkTreeView.SelectedItem as BookmarkItem;
@@ -551,6 +557,45 @@ namespace Flurry.Editor.Patches
                                 }
                             }
                         }, showCancelButton: true, cancelCallback: (task) => cancelToken.Cancel());
+                    }
+                }
+            }
+        }
+
+        [HarmonyPatch("LoadMenuExtensions")]
+        [HarmonyPostfix]
+        public static void MenuExtensionsChanges(MainWindow __instance)
+        {
+            foreach (var _menuExtension in App.PluginManager.MenuExtensions)
+            {
+                dynamic menuExtension = _menuExtension;
+                if (!string.IsNullOrEmpty(menuExtension.SubLevelMenuName))
+                {
+                    if (FlurryEditorUtils.HasProperty(menuExtension, "ParentIcon"))
+                    {
+                        Menu menu = menuRef(__instance);
+                        foreach (var topLevelitem in menu.Items)
+                        {
+                            if (topLevelitem is MenuItem _mi)
+                            {
+                                foreach (var subMenuItem in _mi.Items)
+                                {
+                                    if (subMenuItem is MenuItem mi)
+                                    {
+                                        if (menuExtension.SubLevelMenuName == mi.Header.ToString())
+                                        {
+                                            if (menuExtension.ParentIcon is ImageSource)
+                                            {
+                                                mi.Icon = new Image() { Source = menuExtension.ParentIcon as ImageSource };
+                                            } else
+                                            {
+                                                App.Logger.LogWarning($"Menu extension '{menuExtension.MenuItemName}' does not properly implement ParentIcon.");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

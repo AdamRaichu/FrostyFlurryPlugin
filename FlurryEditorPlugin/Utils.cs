@@ -59,6 +59,21 @@ namespace Flurry.Editor
                 App.Logger.LogError("https://github.com/AdamRaichu/FrostyFlurryPlugin/issues");
             }
         }
+
+        public static bool HasProperty(object obj, string propertyName)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            Type type = obj.GetType();
+            // Use GetProperty to search for a public instance property
+            PropertyInfo propInfo = type.GetProperty(propertyName);
+
+            // If propInfo is not null, the property exists
+            return propInfo != null;
+        }
     }
 
     public static class KyberSettings
