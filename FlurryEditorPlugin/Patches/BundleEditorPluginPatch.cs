@@ -15,6 +15,24 @@ namespace Flurry.Editor.Patches
     [HarmonyPatchCategory("flurry.editor")]
     public class BundleEditorPluginPatch
     {
+        [HarmonyPatch("OnApplyTemplate")]
+        [HarmonyPostfix]
+        public static void ActuallyLoadFirstTime(BundleTabItem __instance)
+        {
+            FlurryEditorConfig config = new FlurryEditorConfig();
+            config.Load();
+
+            if (!config.BundlesTabTweaks)
+            {
+                return;
+            }
+
+            __instance.Loaded += (s, e) =>
+            {
+                __instance.RefreshBundles(App.SelectedAsset);
+            };
+        }
+
         [HarmonyPatch("RefreshBundles")]
         [HarmonyPostfix]
         public static void BundleCounter(BundleTabItem __instance, EbxAssetEntry entry)

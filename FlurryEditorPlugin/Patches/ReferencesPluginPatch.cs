@@ -29,11 +29,17 @@ namespace Flurry.Editor.Patches
         [HarmonyPostfix]
         public static void ReferenceCounter(ReferenceTabItem __instance)
         {
+            FlurryEditorConfig config = new FlurryEditorConfig();
+            config.Load();
+
+            if (!config.ReferencesTabTweaks)
+            {
+                return;
+            }
+
             FrostyAssetListView refExplorerToList = refToList_ref(__instance);
             FrostyAssetListView refExplorerFromList = refFromList_ref(__instance);
 
-            if (refExplorerToList.ItemsSource == null || refExplorerFromList.ItemsSource == null)
-                return;
 
             foreach (var item in App.EditorWindow.MiscTabControl.Items)
             {
@@ -42,6 +48,11 @@ namespace Flurry.Editor.Patches
                     FrostyTabItem tab = item as FrostyTabItem;
                     if (tab.Header.ToString().Contains("References"))
                     {
+                        if (refExplorerToList.ItemsSource == null || refExplorerFromList.ItemsSource == null)
+                        {
+                            tab.Header = "References (0 & 0)";
+                            return;
+                        }
                         tab.Header = $"References ({Enumerable.Count((IEnumerable<EbxAssetEntry>)refExplorerToList.ItemsSource)} & {Enumerable.Count((IEnumerable<EbxAssetEntry>)refExplorerFromList.ItemsSource)})";
                     }
                 }
