@@ -4,6 +4,7 @@ using Frosty.Core;
 using FrostySdk.Interfaces;
 using HarmonyLib;
 using System;
+using System.Windows;
 using System.Windows.Media;
 
 namespace Flurry.Editor
@@ -49,6 +50,29 @@ namespace Flurry.Editor
                 return;
             }
             App.EditorWindow.OpenEditor("[Flurry] Kyber Overrides Editor", new KyberLaunchOverridesEditor());
+        });
+    }
+
+    public class ExportBinaryFileHashesExt : MenuExtension
+    {
+        public override string TopLevelMenuName => "Debug";
+        public override string SubLevelMenuName => "Flurry";
+        public override string MenuItemName => "Copy Binary Hash List";
+
+        public override RelayCommand MenuItemClicked => new RelayCommand((object o) =>
+        {
+            string output = FlurryEditorUtils.GetBinaryFileHashes();
+            try
+            {
+                Clipboard.SetText(output);
+                App.Logger.Log("Copied binary hash list to clipboard.");
+            }
+            catch (Exception ex)
+            {
+                App.Logger.LogWarning("Failed to copy binary hash list to clipboard: " + ex.ToString());
+                App.Logger.LogWarning("Logging the output below:");
+                App.Logger.LogWarning(output);
+            }
         });
     }
 }
