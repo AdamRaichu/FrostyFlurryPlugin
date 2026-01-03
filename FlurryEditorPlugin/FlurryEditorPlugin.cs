@@ -39,7 +39,7 @@ namespace Flurry.Editor
         public override string TopLevelMenuName => "Tools";
         public override string SubLevelMenuName => "Kyber Tooling";
         public override string MenuItemName => "Open Launch Overrides Editor";
-        public override ImageSource ParentIcon => Icon;
+        public ImageSource ParentIcon => Icon;
         public override ImageSource Icon => new ImageSourceConverter().ConvertFromString("pack://application:,,,/FlurryEditorPlugin;component/Images/KyberCog.png") as ImageSource;
         public override RelayCommand MenuItemClicked => new RelayCommand((object o) => {
             FlurryEditorConfig config = new FlurryEditorConfig();
