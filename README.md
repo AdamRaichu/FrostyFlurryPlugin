@@ -33,11 +33,9 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 
 ### Mod Manager
 
-- [ ] Add counter to tab titles for available and applied mods.
-- [x] Add deselect all button to controls tab.
-- [ ] Add "applied" state filter from @Skylark13's PR (CadeEvs/FrostyToolsuite#346).
+- [x] Add "applied" state filter from @Skylark13's PR (CadeEvs/FrostyToolsuite#346).
 - [ ] Add applied mod counter and available mod counter.
-- [ ] Toggle selected button.
+- [x] Toggle selected button (with other functions; hover over it for details).
 - [ ] Add "Copy to Clipboard" button for the Affected Files list.
 - [ ] Hide the screenshots menu if there are no screenshots in the mod (to make use of all available space).
 
