@@ -27,9 +27,7 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 - [x] Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`.
 - [ ] Add options to hide MVDBs and NetRegs from the "references to ___" list.
 - [x] Autosave on export.
-- [ ] Exception box improvements. (InnerExceptions, plugins list + file hashes)
 - [x] Fix the bug in the Bundles tab that prevents it from functioning for the first click.
-- [ ] Resizable options popup.
 
 ### Mod Manager
 
@@ -38,6 +36,12 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 - [x] Toggle selected button (with other functions; hover over it for details).
 - [ ] Add "Copy to Clipboard" button for the Affected Files list.
 - [ ] Hide the screenshots menu if there are no screenshots in the mod (to make use of all available space).
+
+### Both
+
+- [ ] Exception box improvements. (InnerExceptions, plugins list + file hashes)
+- [ ] Option to store config locally.
+- [ ] Resizable options popup.
 
 ## Credits
 

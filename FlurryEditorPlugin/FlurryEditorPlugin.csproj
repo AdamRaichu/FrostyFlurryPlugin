@@ -38,6 +38,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DiffPlex.Wpf" Version="1.9.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyControls\FrostyControls.csproj">
       <Private>false</Private>
     </ProjectReference>
