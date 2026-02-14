@@ -5,12 +5,24 @@
     <TargetFramework>net48</TargetFramework>
     <AssemblyTitle>FlurryEditorPlugin</AssemblyTitle>
     <Product>FlurryEditorPlugin</Product>
-	<RootNamespace>Flurry.Editor</RootNamespace>
+    <RootNamespace>Flurry.Editor</RootNamespace>
     <Copyright>Copyright © 2025</Copyright>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <UseWPF>true</UseWPF>
     <OutputType>Library</OutputType>
+    <WeaverConfiguration>
+      <Weavers>
+        <Costura>
+          <!-- Only embed these runtime assemblies -->
+          <IncludeAssemblies>
+            DiffPlex
+            DiffPlex.Wpf
+            0Harmony
+          </IncludeAssemblies>
+        </Costura>
+      </Weavers>
+    </WeaverConfiguration>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Developer - Debug|x64' ">
@@ -38,7 +50,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Costura.Fody" Version="6.0.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="DiffPlex.Wpf" Version="1.9.1" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -54,30 +70,32 @@
     <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostySdk\FrostySdk.csproj">
       <Private>false</Private>
     </ProjectReference>
-	<ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyEditor\FrostyEditor.csproj">
-		<Private>false</Private>
-	</ProjectReference>
-	<ProjectReference Include="D:\Frosty\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj">
-		<Private>false</Private>
-	</ProjectReference>
-	<ProjectReference Include="D:\Frosty\FrostyToolsuite\Plugins\BundleEditorPlugin\BundleEditorPlugin.csproj">
-		<Private>false</Private>
-	</ProjectReference>
+    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyEditor\FrostyEditor.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference
+      Include="D:\Frosty\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference
+      Include="D:\Frosty\FrostyToolsuite\Plugins\BundleEditorPlugin\BundleEditorPlugin.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
-	<ItemGroup>
-		<Resource Include="Images\KyberCog.png" />
-		<Resource Include="Images\Pencil.png" />
-	</ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\KyberCog.png" />
+    <Resource Include="Images\Pencil.png" />
+  </ItemGroup>
 
-	<ItemGroup>
-		<Reference Include="0Harmony">
-			<HintPath>ThirdParty\0Harmony.dll</HintPath>
-		</Reference>
-		<Reference Include="Newtonsoft.Json">
-		  <HintPath>..\..\FrostyToolsuite\FrostyEditor\ThirdParty\Newtonsoft.Json.dll</HintPath>
-		</Reference>
-	</ItemGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>ThirdParty\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\FrostyToolsuite\FrostyEditor\ThirdParty\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+  </ItemGroup>
 
   <!--
     <Target Name="PostBuild" AfterTargets="PostBuildEvent">

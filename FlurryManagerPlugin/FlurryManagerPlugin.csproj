@@ -11,6 +11,16 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <UseWPF>true</UseWPF>
     <OutputType>Library</OutputType>
+	<WeaverConfiguration>
+		<Weavers>
+			<Costura>
+				<!-- Only embed these runtime assemblies -->
+				<IncludeAssemblies>
+					0Harmony
+				</IncludeAssemblies>
+			</Costura>
+		</Weavers>
+	</WeaverConfiguration>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Developer - Debug|x64' ">
@@ -61,9 +71,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Reference Include="0Harmony">
-			<HintPath>ThirdParty\0Harmony.dll</HintPath>
-		</Reference>
+		<PackageReference Include="Costura.Fody" Version="6.0.0">
+			<PrivateAssets>all</PrivateAssets>
+		</PackageReference>
+		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
 	</ItemGroup>
 
   <!--

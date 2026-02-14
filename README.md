@@ -5,7 +5,7 @@ Custom forks or other versions of Frosty are not guaranteed to be supported.
 
 The point of this fork is to port features from my fork of Frosty into a plugin that can be used on the vanilla build of Frosty.
 
-[Harmony](https://github.com/pardeike/Harmony) is licensed under the MIT license.
+Builds come bundled with [Harmony](https://github.com/pardeike/Harmony) which is licensed under the MIT license.
 
 ## Feature List / TODO List
 

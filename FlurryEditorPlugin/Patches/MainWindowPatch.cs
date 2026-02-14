@@ -330,6 +330,7 @@ namespace Flurry.Editor.Patches
                 ProcessStartInfo psi = new ProcessStartInfo(KyberSettings.CliDirectory);
                 psi.EnvironmentVariables["KYBER_ONLINE_MODE"] = "0";
                 psi.EnvironmentVariables["KYBER_ALLOW_DEDICATED"] = "1";
+                psi.EnvironmentVariables["KYBER_BYPASS_DOCKER_I_REALLY_KNOW_WHAT_I_AM_DOING"] = "1";
                 if (KyberSettings.DebugMode)
                 {
                     psi.EnvironmentVariables["KYBER_PROPERTY_DEBUG"] = "1";
