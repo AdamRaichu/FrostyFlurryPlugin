@@ -28,6 +28,10 @@ Builds come bundled with [Harmony](https://github.com/pardeike/Harmony) which is
 - [ ] Add options to hide MVDBs and NetRegs from the "references to ___" list.
 - [x] Autosave on export.
 - [x] Fix the bug in the Bundles tab that prevents it from functioning for the first click.
+- [ ] Duplicate chunk option in chunk/res view.
+- [ ] Show only unmodified option for file explorer.
+- [ ] Mass bin import/export.
+- [ ] Revert folder
 
 ### Mod Manager
 
