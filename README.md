@@ -5,8 +5,6 @@ Custom forks or other versions of Frosty are not guaranteed to be supported.
 
 The point of this fork is to port features from my fork of Frosty into a plugin that can be used on the vanilla build of Frosty.
 
-Builds come bundled with [Harmony](https://github.com/pardeike/Harmony) which is licensed under the MIT license.
-
 ## Feature List / TODO List
 
 ### Editor
@@ -58,3 +56,11 @@ Builds come bundled with [Harmony](https://github.com/pardeike/Harmony) which is
 <a href="https://www.freepik.com/icon/pencils_2829958#fromView=search&page=1&position=67&uuid=886e8a07-9119-44d4-8da2-451df209b38a">Icon by Freepik</a>
 
 Image is color inverted.
+
+### Harmony.WPF
+
+Embedded library [Harmony](https://github.com/pardeike/Harmony), licensed under the MIT license.
+
+### Diffplex.WPF
+
+Embedded library [Diffplex](https://github.com/mmanela/diffplex), licensed under the Apache License 2.0.
