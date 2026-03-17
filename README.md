@@ -5,7 +5,9 @@ Custom forks or other versions of Frosty are not guaranteed to be supported.
 
 The point of this fork is to port features from my fork of Frosty into a plugin that can be used on the vanilla build of Frosty.
 
-## Feature List / TODO List
+## Feature List
+
+(This list used to also include planned features. Those have been moved to the Issues tab.)
 
 ### Editor
 
@@ -19,31 +21,20 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 - [x] Add `Open in Blueprint Editor` context menu option.
 - [x] Add `Copy GUID` context menu option.
 - [x] Add images to context menu options that did not previously have them.
-- [ ] Add `Display Reference Details` from Mophead's fork.
 - [x] Add `Copy file path` context menu option.
 - [x] Add counter for how many files are referenced.
 - [x] Add counter for how many bundles the asset is in. Displays as `Bundles (<default> + <added>)`.
-- [ ] Add options to hide MVDBs and NetRegs from the "references to ___" list.
 - [x] Autosave on export.
 - [x] Fix the bug in the Bundles tab that prevents it from functioning for the first click.
-- [ ] Duplicate chunk option in chunk/res view.
-- [ ] Show only unmodified option for file explorer.
-- [ ] Mass bin import/export.
-- [ ] Revert folder
 
 ### Mod Manager
 
 - [x] Add "applied" state filter from @Skylark13's PR (CadeEvs/FrostyToolsuite#346).
-- [ ] Add applied mod counter and available mod counter.
 - [x] Toggle selected button (with other functions; hover over it for details).
-- [ ] Add "Copy to Clipboard" button for the Affected Files list.
-- [ ] Hide the screenshots menu if there are no screenshots in the mod (to make use of all available space).
 
 ### Both
 
-- [ ] Exception box improvements. (InnerExceptions, plugins list + file hashes)
-- [ ] Option to store config locally.
-- [ ] Resizable options popup.
+*Coming soon*
 
 ## Credits
 
