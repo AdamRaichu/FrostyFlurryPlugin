@@ -51,9 +51,9 @@ namespace Flurry.Editor.Patches
             Grid splitGrid = new Grid();
             Grid.SetRow(splitGrid, 1);
 
-            // Two columns: fixed sidebar, separator, flexible content
-            splitGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(200) });
-            splitGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
+            // Three columns: auto-sized sidebar, draggable splitter, flexible content
+            splitGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MinWidth = 120, MaxWidth = 350 });
+            splitGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(5) });
             splitGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             // Sidebar ListBox
@@ -80,13 +80,16 @@ namespace Flurry.Editor.Patches
                 sidebar.Items.Add(item);
             }
 
-            // Vertical separator
-            Border separator = new Border
+            // Draggable splitter
+            GridSplitter splitter = new GridSplitter
             {
-                Width = 1,
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1a1a1a"))
+                Width = 5,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1a1a1a")),
+                ResizeBehavior = GridResizeBehavior.PreviousAndNext
             };
-            Grid.SetColumn(separator, 1);
+            Grid.SetColumn(splitter, 1);
 
             // Content area
             ContentControl contentArea = new ContentControl();
@@ -103,7 +106,7 @@ namespace Flurry.Editor.Patches
             };
 
             splitGrid.Children.Add(sidebar);
-            splitGrid.Children.Add(separator);
+            splitGrid.Children.Add(splitter);
             splitGrid.Children.Add(contentArea);
 
             parentGrid.Children.Add(splitGrid);
