@@ -34,7 +34,7 @@ The point of this fork is to port features from my fork of Frosty into a plugin 
 
 ### Both
 
-*Coming soon*
+- [x] Options menu uses vertical tabs and is resizable.
 
 ## Credits
 
