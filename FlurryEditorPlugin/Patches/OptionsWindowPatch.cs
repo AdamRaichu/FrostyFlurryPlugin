@@ -86,7 +86,7 @@ namespace Flurry.Editor.Patches
                 Width = 5,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1a1a1a")),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#454545")),
                 ResizeBehavior = GridResizeBehavior.PreviousAndNext
             };
             Grid.SetColumn(splitter, 1);
