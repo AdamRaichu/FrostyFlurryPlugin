@@ -100,7 +100,11 @@ namespace Flurry.Manager.Patches
             {
                 if (sidebar.SelectedItem is ListBoxItem selectedItem && selectedItem.Tag is OptionsExtension optionData)
                 {
-                    contentArea.Content = new FrostyPropertyGrid { Object = optionData };
+                    contentArea.Content = new FrostyPropertyGrid
+                    {
+                        Object = optionData,
+                        Foreground = new SolidColorBrush(Color.FromRgb(0xDA, 0xDA, 0xDA))
+                    };
                 }
             };
 
