@@ -65,6 +65,13 @@ namespace Flurry.Editor
         [EbxFieldMeta(EbxFieldType.Boolean)]
         public bool KyberIntegration { get; set; } = true;
 
+        [Category("Source Control")]
+        [DisplayName("Exploded Directory Format")]
+        [Description("When saving, also export an exploded directory (.fbproject.dir) alongside the normal .fbproject file. This enables git-based source control for your project.")]
+        [Editor(typeof(FrostyBooleanEditor))]
+        [EbxFieldMeta(EbxFieldType.Boolean)]
+        public bool ExplodedDirectoryFormat { get; set; } = false;
+
         public override void Load()
         {
             HarmonyDebug = Config.Get<bool>("Flurry.HarmonyDebug", false);
@@ -75,6 +82,7 @@ namespace Flurry.Editor
             ReferencesTabTweaks = Config.Get<bool>("Flurry.ReferencesTabTweaks", true);
             BundlesTabTweaks = Config.Get<bool>("Flurry.BundlesTabTweaks", true);
             KyberIntegration = Config.Get<bool>("Flurry.KyberIntegration", true);
+            ExplodedDirectoryFormat = Config.Get<bool>("Flurry.ExplodedDirectoryFormat", false);
         }
 
         public override void Save()
@@ -87,6 +95,7 @@ namespace Flurry.Editor
             Config.Add("Flurry.ReferencesTabTweaks", ReferencesTabTweaks);
             Config.Add("Flurry.BundlesTabTweaks", BundlesTabTweaks);
             Config.Add("Flurry.KyberIntegration", KyberIntegration);
+            Config.Add("Flurry.ExplodedDirectoryFormat", ExplodedDirectoryFormat);
             Config.Save();
         }
 

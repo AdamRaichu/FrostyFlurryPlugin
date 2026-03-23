@@ -30,4 +30,5 @@ using Frosty.Core;
 [assembly: RegisterOptionsExtension(typeof(FlurryEditorConfig), PluginManagerType.Editor)]
 [assembly: RegisterMenuExtension(typeof(LoadOrderEditorMenuExt), PluginManagerType.Editor)]
 [assembly: RegisterMenuExtension(typeof(ExportBinaryFileHashesExt), PluginManagerType.Editor)]
+[assembly: RegisterMenuExtension(typeof(OpenProjectFolderMenuExt), PluginManagerType.Editor)]
 //[assembly: RegisterDataExplorerContextMenu(typeof(XmlDiffGeneratorExtension))]

@@ -1,9 +1,11 @@
 ﻿using Flurry.Editor.Editors;
+using Flurry.Editor.Patches;
 using Frosty.Controls;
 using Frosty.Core;
 using FrostySdk.Interfaces;
 using HarmonyLib;
 using System;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Media;
 
@@ -31,6 +33,25 @@ namespace Flurry.Editor
             taskLogger.Log("[Flurry] Applying editor patches...");
             var harmony = new Harmony("io.github.adamraichu.frosty.flurry.editor");
             harmony.PatchCategory("flurry.editor");
+
+            // Manually patch LoadMenuExtensions on MainWindow to reposition menu items
+            try
+            {
+                Type mainWindowType = AccessTools.TypeByName("FrostyEditor.MainWindow");
+                if (mainWindowType != null)
+                {
+                    MethodInfo target = AccessTools.Method(mainWindowType, "LoadMenuExtensions");
+                    MethodInfo postfix = AccessTools.Method(typeof(MenuRepositionPatch), "Postfix");
+                    if (target != null && postfix != null)
+                    {
+                        harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                taskLogger.Log("[Flurry] Menu reposition patch failed: " + ex.Message);
+            }
         }
     }
 
