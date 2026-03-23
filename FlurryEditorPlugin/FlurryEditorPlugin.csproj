@@ -73,18 +73,17 @@
     <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyEditor\FrostyEditor.csproj">
       <Private>false</Private>
     </ProjectReference>
-    <ProjectReference
-      Include="D:\Frosty\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj">
+    <ProjectReference Include="D:\Frosty\FrostyToolsuite\Plugins\ReferencesPlugin\ReferencesPlugin.csproj">
       <Private>false</Private>
     </ProjectReference>
-    <ProjectReference
-      Include="D:\Frosty\FrostyToolsuite\Plugins\BundleEditorPlugin\BundleEditorPlugin.csproj">
+    <ProjectReference Include="D:\Frosty\FrostyToolsuite\Plugins\BundleEditorPlugin\BundleEditorPlugin.csproj">
       <Private>false</Private>
     </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
     <Resource Include="Images\KyberCog.png" />
+    <Resource Include="Images\OpenFolder.png" />
     <Resource Include="Images\Pencil.png" />
   </ItemGroup>
 

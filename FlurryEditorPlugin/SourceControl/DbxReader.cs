@@ -111,9 +111,19 @@ namespace Flurry.Editor
         private void ParseInstance(XmlNode node, object obj, Guid instGuid)
         {
             ReadInstanceFields(node, obj, obj.GetType());
-
+            
             bool isRoot = (instGuid == m_primaryInstGuid) || (m_ebx.Objects.Count() == 0);
-            ((dynamic)m_ebx).AddObject(obj, isRoot);
+            App.Logger.Log($"m_ebx: {m_ebx}");
+            App.Logger.Log($"FileGuid: {m_ebx.FileGuid}");
+            // The below simulates a method call in AddRootObject which is causing an object reference error
+            App.Logger.Log($"Objects.Count(): {m_ebx.Objects.Count()}"); // <-- crash occurs on this line
+            if (isRoot)
+            {
+                m_ebx.AddRootObject(obj);
+            } else
+            {
+                m_ebx.AddObject(obj);
+            }
         }
 
         #endregion
