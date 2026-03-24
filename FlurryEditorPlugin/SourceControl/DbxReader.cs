@@ -118,7 +118,14 @@ namespace Flurry.Editor
             ReadInstanceFields(node, obj, obj.GetType());
 
             bool isRoot = (instGuid == m_primaryInstGuid) || (m_ebx.Objects.Count() == 0);
-            ((dynamic)m_ebx).AddObject(obj, isRoot);
+            if (isRoot)
+            {
+                m_ebx.AddRootObject(obj);
+            }
+            else
+            {
+                m_ebx.AddObject(obj);
+            }
         }
 
         #endregion
@@ -489,25 +496,28 @@ namespace Flurry.Editor
         {
             switch (name)
             {
-                case "Boolean": return typeof(bool);
-                case "Int8": return typeof(sbyte);
-                case "Int16": return typeof(short);
-                case "Int32": return typeof(int);
-                case "Int64": return typeof(long);
-                case "UInt8": return typeof(byte);
-                case "UInt16": return typeof(ushort);
-                case "UInt32": return typeof(uint);
-                case "UInt64": return typeof(ulong);
-                case "Float32": return typeof(float);
-                case "Float64": return typeof(double);
-                case "String": return typeof(string);
+                case "String": return typeof(String);
                 case "CString": return typeof(CString);
+                case "Boolean": return typeof(Boolean);
+                case "Int8": return typeof(SByte);
+                case "Int16": return typeof(Int16);
+                case "Int32": return typeof(Int32);
+                case "Int64": return typeof(Int64);
+                case "UInt8": return typeof(Byte);
+                case "UInt16": return typeof(UInt16);
+                case "UInt32": return typeof(UInt32);
+                case "UInt64": return typeof(UInt64);
+                case "Float32": return typeof(Single);
+                case "Float64": return typeof(Double);
+                case "Single": return typeof(Single);
                 case "Guid": return typeof(Guid);
                 case "Sha1": return typeof(Sha1);
                 case "ResourceRef": return typeof(ResourceRef);
                 case "FileRef": return typeof(FileRef);
                 case "TypeRef": return typeof(TypeRef);
                 case "BoxedValueRef": return typeof(BoxedValueRef);
+                // Note that PointerRef is not listed this way in Frosty v2
+                // If having issues with PointerRef serialization, check here.
                 case "PointerRef": return typeof(PointerRef);
                 default: return null;
             }
