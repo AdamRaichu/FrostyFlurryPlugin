@@ -42,6 +42,11 @@ namespace Flurry.Editor
         public EbxAsset ReadAsset()
         {
             m_ebx = new EbxAsset();
+
+            // EbxAsset's default constructor doesn't initialize its internal lists,
+            // so we must do it via reflection before using the asset.
+            InitializeEbxAssetLists(m_ebx);
+
             m_guidToObjAndXml.Clear();
             m_guidToRefCount.Clear();
 
@@ -111,19 +116,9 @@ namespace Flurry.Editor
         private void ParseInstance(XmlNode node, object obj, Guid instGuid)
         {
             ReadInstanceFields(node, obj, obj.GetType());
-            
+
             bool isRoot = (instGuid == m_primaryInstGuid) || (m_ebx.Objects.Count() == 0);
-            App.Logger.Log($"m_ebx: {m_ebx}");
-            App.Logger.Log($"FileGuid: {m_ebx.FileGuid}");
-            // The below simulates a method call in AddRootObject which is causing an object reference error
-            App.Logger.Log($"Objects.Count(): {m_ebx.Objects.Count()}"); // <-- crash occurs on this line
-            if (isRoot)
-            {
-                m_ebx.AddRootObject(obj);
-            } else
-            {
-                m_ebx.AddObject(obj);
-            }
+            ((dynamic)m_ebx).AddObject(obj, isRoot);
         }
 
         #endregion
@@ -225,10 +220,13 @@ namespace Flurry.Editor
             }
             else
             {
-                elementType = TypeLibrary.GetType(arrayTypeStr);
+                // Check primitives first — TypeLibrary.GetType("Int32") returns
+                // FrostySdk.Ebx.Reflection.Int32 instead of System.Int32, which
+                // causes type mismatch when assigning to List<int> properties.
+                elementType = GetPrimitiveType(arrayTypeStr);
                 if (elementType == null)
                 {
-                    elementType = GetPrimitiveType(arrayTypeStr);
+                    elementType = TypeLibrary.GetType(arrayTypeStr);
                 }
             }
 
@@ -433,6 +431,27 @@ namespace Flurry.Editor
         #endregion
 
         #region Helpers
+
+        /// <summary>
+        /// EbxAsset's default constructor leaves objects/dependencies/refCounts as null.
+        /// Initialize them so AddObject/AddDependency don't crash.
+        /// </summary>
+        private static void InitializeEbxAssetLists(EbxAsset asset)
+        {
+            var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            var objectsField = typeof(EbxAsset).GetField("objects", flags);
+            if (objectsField != null && objectsField.GetValue(asset) == null)
+                objectsField.SetValue(asset, new List<object>());
+
+            var depsField = typeof(EbxAsset).GetField("dependencies", flags);
+            if (depsField != null && depsField.GetValue(asset) == null)
+                depsField.SetValue(asset, new List<Guid>());
+
+            var refCountsField = typeof(EbxAsset).GetField("refCounts", flags);
+            if (refCountsField != null && refCountsField.GetValue(asset) == null)
+                refCountsField.SetValue(asset, new List<int>());
+        }
 
         private static string GetAttr(XmlNode node, string name)
         {

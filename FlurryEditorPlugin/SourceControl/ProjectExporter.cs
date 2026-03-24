@@ -23,11 +23,13 @@ namespace Flurry.Editor
 
         public static void ExportDirectory(FrostyProject project, string path, bool updateDirtyState)
         {
+            SCLog.Verbose("Export started: " + path);
             Directory.CreateDirectory(path);
 
             ModSettings modSettings = project.ModSettings;
 
             WriteProjectJson(project, path);
+            SCLog.Verbose("Wrote project.json");
             WriteModImages(modSettings, path);
 
             try
@@ -36,7 +38,7 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Failed to write EBX assets: " + ex);
+                SCLog.Error("Failed to write EBX assets: " + ex);
             }
 
             try
@@ -45,7 +47,7 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Failed to write RES assets: " + ex);
+                SCLog.Error("Failed to write RES assets: " + ex);
             }
 
             try
@@ -54,13 +56,13 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Failed to write chunk assets: " + ex);
+                SCLog.Error("Failed to write chunk assets: " + ex);
             }
 
             WriteLegacyHandlers(path);
             CleanRemovedAssets(path);
 
-            App.Logger.Log("[SourceControl] Project saved to exploded directory: " + path);
+            SCLog.Log("Project saved to exploded directory: " + path);
         }
 
         #region project.json
@@ -193,6 +195,7 @@ namespace Flurry.Editor
                         string datPath = Path.Combine(ebxDir, safeName + ".dat");
                         EnsureDirectory(datPath);
                         File.WriteAllBytes(datPath, buf);
+                        SCLog.Verbose("  EBX [custom handler] " + entry.Name + " (" + buf.Length + " bytes)");
                     }
                     else
                     {
@@ -205,11 +208,20 @@ namespace Flurry.Editor
                             {
                                 dbxWriter.Write(asset);
                             }
+                            SCLog.Verbose("  EBX [xml] " + entry.Name + " (" + asset.Objects.Count() + " objects)");
+                        }
+                        else
+                        {
+                            SCLog.Verbose("  EBX [linked only] " + entry.Name);
                         }
                     }
 
                     if (updateDirtyState)
                         entry.ModifiedEntry.IsDirty = false;
+                }
+                else
+                {
+                    SCLog.Verbose("  EBX [linked only] " + entry.Name);
                 }
 
                 string metaPath = Path.Combine(ebxDir, safeName + ".meta.json");
@@ -220,7 +232,7 @@ namespace Flurry.Editor
                     entry.IsDirty = false;
             }
 
-            App.Logger.Log("[SourceControl] Wrote " + ebxCount + " EBX entries");
+            SCLog.Verbose("Wrote " + ebxCount + " EBX entries");
         }
 
         #endregion
@@ -231,8 +243,10 @@ namespace Flurry.Editor
         {
             string resDir = Path.Combine(basePath, "res");
 
+            int resCount = 0;
             foreach (ResAssetEntry entry in App.AssetManager.EnumerateRes(modifiedOnly: true))
             {
+                resCount++;
                 string safeName = SanitizePath(entry.Name);
 
                 var meta = new ResMetaJson
@@ -267,6 +281,7 @@ namespace Flurry.Editor
                         string datPath = Path.Combine(resDir, safeName + ".dat");
                         EnsureDirectory(datPath);
                         File.WriteAllBytes(datPath, buffer);
+                        SCLog.Verbose("  RES " + (meta.IsCustomHandler ? "[custom handler] " : "") + entry.Name + " (" + buffer.Length + " bytes)");
                     }
 
                     if (updateDirtyState)
@@ -280,6 +295,8 @@ namespace Flurry.Editor
                 if (updateDirtyState)
                     entry.IsDirty = false;
             }
+
+            SCLog.Verbose("Wrote " + resCount + " RES entries");
         }
 
         #endregion
@@ -290,8 +307,10 @@ namespace Flurry.Editor
         {
             string chunksDir = Path.Combine(basePath, "chunks");
 
+            int chunkCount = 0;
             foreach (ChunkAssetEntry entry in App.AssetManager.EnumerateChunks(modifiedOnly: true))
             {
+                chunkCount++;
                 string id = entry.Id.ToString();
 
                 var meta = new ChunkMetaJson
@@ -317,6 +336,7 @@ namespace Flurry.Editor
                         string datPath = Path.Combine(chunksDir, id + ".dat");
                         EnsureDirectory(datPath);
                         File.WriteAllBytes(datPath, entry.ModifiedEntry.Data);
+                        SCLog.Verbose("  Chunk " + id + " (" + entry.ModifiedEntry.Data.Length + " bytes)");
                     }
 
                     if (updateDirtyState)
@@ -330,6 +350,8 @@ namespace Flurry.Editor
                 if (updateDirtyState)
                     entry.IsDirty = false;
             }
+
+            SCLog.Verbose("Wrote " + chunkCount + " chunk entries");
         }
 
         #endregion

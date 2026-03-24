@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace Flurry.Editor
@@ -20,7 +21,7 @@ namespace Flurry.Editor
             string projectJsonPath = Path.Combine(path, "project.json");
             if (!File.Exists(projectJsonPath))
             {
-                App.Logger.LogError("[SourceControl] No project.json found in: " + path);
+                SCLog.Error("No project.json found in: " + path);
                 return false;
             }
 
@@ -32,23 +33,34 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Failed to read project.json: " + ex.Message);
+                SCLog.Error("Failed to read project.json: " + ex.Message);
+                return false;
+            }
+
+            if (projectJson == null)
+            {
+                SCLog.Error("project.json deserialized to null");
                 return false;
             }
 
             if (!string.Equals(projectJson.GameProfile, ProfilesLibrary.ProfileName, StringComparison.OrdinalIgnoreCase))
             {
-                App.Logger.LogError("[SourceControl] Project game profile '" + projectJson.GameProfile +
+                SCLog.Error("Project game profile '" + projectJson.GameProfile +
                     "' does not match current profile '" + ProfilesLibrary.ProfileName + "'");
                 return false;
             }
 
+            SCLog.Verbose("Loading project: " + projectJson.GameProfile + " v" + projectJson.GameVersion);
+
             ModSettings ms = project.ModSettings;
-            ms.Title = projectJson.ModSettings.Title;
-            ms.Author = projectJson.ModSettings.Author;
-            ms.Version = projectJson.ModSettings.Version;
-            ms.Category = projectJson.ModSettings.Category;
-            ms.Description = projectJson.ModSettings.Description;
+            if (projectJson.ModSettings != null)
+            {
+                ms.Title = projectJson.ModSettings.Title ?? "";
+                ms.Author = projectJson.ModSettings.Author ?? "";
+                ms.Version = projectJson.ModSettings.Version ?? "";
+                ms.Category = projectJson.ModSettings.Category ?? "";
+                ms.Description = projectJson.ModSettings.Description ?? "";
+            }
 
             LoadModImages(ms, path);
 
@@ -58,50 +70,71 @@ namespace Flurry.Editor
 
             Dictionary<int, AssetEntry> h32map = new Dictionary<int, AssetEntry>();
 
-            foreach (AddedBundleJson bundle in projectJson.AddedBundles)
+            if (projectJson.AddedBundles != null && projectJson.AddedBundles.Count > 0)
             {
-                App.AssetManager.AddBundle(bundle.Name, (BundleType)bundle.Type,
-                    App.AssetManager.GetSuperBundleId(bundle.SuperBundle));
-            }
-
-            foreach (AddedEbxJson ebx in projectJson.AddedEbx)
-            {
-                EbxAssetEntry entry = new EbxAssetEntry
+                SCLog.Verbose("Adding " + projectJson.AddedBundles.Count + " bundles...");
+                foreach (AddedBundleJson bundle in projectJson.AddedBundles)
                 {
-                    Name = ebx.Name,
-                    Guid = Guid.Parse(ebx.Guid)
-                };
-                App.AssetManager.AddEbx(entry);
+                    App.AssetManager.AddBundle(bundle.Name, (BundleType)bundle.Type,
+                        App.AssetManager.GetSuperBundleId(bundle.SuperBundle));
+                    SCLog.Verbose("  Bundle: " + bundle.Name);
+                }
             }
 
-            foreach (AddedResJson res in projectJson.AddedRes)
+            if (projectJson.AddedEbx != null && projectJson.AddedEbx.Count > 0)
             {
-                ResAssetEntry entry = new ResAssetEntry
+                SCLog.Verbose("Adding " + projectJson.AddedEbx.Count + " EBX entries...");
+                foreach (AddedEbxJson ebx in projectJson.AddedEbx)
                 {
-                    Name = res.Name,
-                    ResRid = res.ResRid,
-                    ResType = res.ResType,
-                    ResMeta = res.ResMeta != null ? Convert.FromBase64String(res.ResMeta) : new byte[0x10]
-                };
-                App.AssetManager.AddRes(entry);
+                    EbxAssetEntry entry = new EbxAssetEntry
+                    {
+                        Name = ebx.Name,
+                        Guid = Guid.Parse(ebx.Guid)
+                    };
+                    App.AssetManager.AddEbx(entry);
+                    SCLog.Verbose("  Added EBX: " + ebx.Name);
+                }
             }
 
-            foreach (AddedChunkJson chunk in projectJson.AddedChunks)
+            if (projectJson.AddedRes != null && projectJson.AddedRes.Count > 0)
             {
-                ChunkAssetEntry entry = new ChunkAssetEntry
+                SCLog.Verbose("Adding " + projectJson.AddedRes.Count + " RES entries...");
+                foreach (AddedResJson res in projectJson.AddedRes)
                 {
-                    Id = Guid.Parse(chunk.Id),
-                    H32 = chunk.H32
-                };
-                App.AssetManager.AddChunk(entry);
+                    ResAssetEntry entry = new ResAssetEntry
+                    {
+                        Name = res.Name,
+                        ResRid = res.ResRid,
+                        ResType = res.ResType,
+                        ResMeta = res.ResMeta != null ? Convert.FromBase64String(res.ResMeta) : new byte[0x10]
+                    };
+                    App.AssetManager.AddRes(entry);
+                    SCLog.Verbose("  Added RES: " + res.Name);
+                }
             }
 
+            if (projectJson.AddedChunks != null && projectJson.AddedChunks.Count > 0)
+            {
+                SCLog.Verbose("Adding " + projectJson.AddedChunks.Count + " chunk entries...");
+                foreach (AddedChunkJson chunk in projectJson.AddedChunks)
+                {
+                    ChunkAssetEntry entry = new ChunkAssetEntry
+                    {
+                        Id = Guid.Parse(chunk.Id),
+                        H32 = chunk.H32
+                    };
+                    App.AssetManager.AddChunk(entry);
+                    SCLog.Verbose("  Added Chunk: " + chunk.Id);
+                }
+            }
+
+            SCLog.Verbose("Loading modified assets...");
             LoadModifiedEbx(path, h32map);
             LoadModifiedRes(path, h32map);
             LoadModifiedChunks(path, h32map);
             LoadLegacyHandlers(path);
 
-            App.Logger.Log("[SourceControl] Project loaded from exploded directory: " + path);
+            SCLog.Log("Project loaded from exploded directory: " + path);
             return true;
         }
 
@@ -140,14 +173,14 @@ namespace Flurry.Editor
                 }
                 catch (Exception ex)
                 {
-                    App.Logger.LogWarning("[SourceControl] Failed to read EBX meta: " + metaFile + " - " + ex.Message);
+                    SCLog.Warn(" Failed to read EBX meta: " + metaFile + " - " + ex.Message);
                     continue;
                 }
 
                 EbxAssetEntry entry = App.AssetManager.GetEbxEntry(meta.Name);
                 if (entry == null)
                 {
-                    App.Logger.LogWarning("[SourceControl] EBX entry not found: " + meta.Name);
+                    SCLog.Warn(" EBX entry not found: " + meta.Name);
                     continue;
                 }
 
@@ -176,6 +209,7 @@ namespace Flurry.Editor
                         DataObject = ModifiedResource.Read(data)
                     };
                     hasData = true;
+                    SCLog.Verbose("  EBX [custom handler] " + meta.Name + " (" + data.Length + " bytes)");
                 }
                 else if (File.Exists(xmlPath))
                 {
@@ -184,6 +218,7 @@ namespace Flurry.Editor
                         var dbxReader = new DbxReader(xmlPath);
                         EbxAsset asset = dbxReader.ReadAsset();
                         asset.Update();
+                        SCLog.Verbose("  EBX [xml] " + meta.Name + " (" + asset.Objects.Count() + " objects)");
 
                         entry.ModifiedEntry = new ModifiedAssetEntry
                         {
@@ -200,7 +235,7 @@ namespace Flurry.Editor
                     }
                     catch (Exception ex)
                     {
-                        App.Logger.LogWarning("[SourceControl] Failed to read EBX XML: " + xmlPath + " - " + ex.Message);
+                        SCLog.Warn(" Failed to read EBX XML: " + xmlPath + " - " + ex);
                     }
                 }
 
@@ -232,14 +267,14 @@ namespace Flurry.Editor
                 }
                 catch (Exception ex)
                 {
-                    App.Logger.LogWarning("[SourceControl] Failed to read RES meta: " + metaFile + " - " + ex.Message);
+                    SCLog.Warn(" Failed to read RES meta: " + metaFile + " - " + ex.Message);
                     continue;
                 }
 
                 ResAssetEntry entry = App.AssetManager.GetResEntry(meta.Name);
                 if (entry == null)
                 {
-                    App.Logger.LogWarning("[SourceControl] RES entry not found: " + meta.Name);
+                    SCLog.Warn(" RES entry not found: " + meta.Name);
                     continue;
                 }
 
@@ -279,6 +314,7 @@ namespace Flurry.Editor
                     }
 
                     entry.OnModified();
+                    SCLog.Verbose("  RES " + (meta.IsCustomHandler ? "[custom handler] " : "") + meta.Name + " (" + data.Length + " bytes)");
                 }
 
                 int hash = Fnv1.HashString(entry.Name);
@@ -306,7 +342,7 @@ namespace Flurry.Editor
                 }
                 catch (Exception ex)
                 {
-                    App.Logger.LogWarning("[SourceControl] Failed to read chunk meta: " + metaFile + " - " + ex.Message);
+                    SCLog.Warn(" Failed to read chunk meta: " + metaFile + " - " + ex.Message);
                     continue;
                 }
 
@@ -354,6 +390,7 @@ namespace Flurry.Editor
                         Data = File.ReadAllBytes(datPath)
                     };
                     entry.OnModified();
+                    SCLog.Verbose("  Chunk " + meta.Id + " (" + entry.ModifiedEntry.Data.Length + " bytes)");
                 }
                 else
                 {
@@ -385,7 +422,7 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                App.Logger.LogWarning("[SourceControl] Failed to load legacy handlers: " + ex.Message);
+                SCLog.Warn(" Failed to load legacy handlers: " + ex.Message);
             }
         }
 

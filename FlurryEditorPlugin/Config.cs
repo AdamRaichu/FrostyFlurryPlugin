@@ -67,10 +67,11 @@ namespace Flurry.Editor
 
         [Category("Source Control")]
         [DisplayName("Exploded Directory Format")]
-        [Description("When saving, also export an exploded directory (.fbproject.dir) alongside the normal .fbproject file. This enables git-based source control for your project.")]
+        [Description("When saving, also export an exploded directory alongside the normal .fbproject file. This enables git-based source control for your project.")]
         [Editor(typeof(FrostyBooleanEditor))]
         [EbxFieldMeta(EbxFieldType.Boolean)]
         public bool ExplodedDirectoryFormat { get; set; } = false;
+
 
         public override void Load()
         {

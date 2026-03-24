@@ -35,7 +35,7 @@ namespace Flurry.Editor
             Window mainWindow = Application.Current.MainWindow;
             if (mainWindow == null)
             {
-                App.Logger.LogError("[SourceControl] Could not find MainWindow");
+                SCLog.Error(" Could not find MainWindow");
                 return;
             }
 
@@ -44,7 +44,7 @@ namespace Flurry.Editor
 
             if (loadProjectMethod == null)
             {
-                App.Logger.LogError("[SourceControl] Could not find LoadProject method");
+                SCLog.Error(" Could not find LoadProject method");
                 return;
             }
 

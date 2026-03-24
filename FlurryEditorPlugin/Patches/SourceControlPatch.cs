@@ -10,13 +10,14 @@ namespace Flurry.Editor.Patches
     /// Prefix on FrostyProject.Save — when the project was loaded from an exploded directory,
     /// redirect the filename so the original Save writes a .fbproject file alongside it
     /// (the original Save would fail trying to File.Delete a directory path).
+    /// Postfix exports the exploded directory after the binary save completes.
     /// </summary>
     [HarmonyPatch(typeof(FrostyProject), "Save")]
     [HarmonyPatchCategory("flurry.editor")]
     public class FrostyProject_Save_Patch
     {
         /// <summary>
-        /// Stores the original directory path so Postfix can export the exploded directory.
+        /// Stores the exploded directory path so Postfix can export after the binary save.
         /// </summary>
         [ThreadStatic]
         private static string s_explodedDirPath;
@@ -27,16 +28,34 @@ namespace Flurry.Editor.Patches
 
             string path = !string.IsNullOrEmpty(overrideFilename) ? overrideFilename : __instance.Filename;
 
-            // If the project filename is a directory (loaded from exploded format),
-            // redirect to save a .fbproject file alongside it so the original Save doesn't choke.
+            // If the project filename points to a directory (loaded from exploded format),
+            // we need to redirect the binary save to a .fbproject *file* alongside the directory
+            // so the original Save code doesn't try to File.Delete a directory (which fails with Access Denied).
             if (Directory.Exists(path))
             {
-                // "MyMod.fbproject" directory -> "MyMod.fbproject.bin" file for the binary save
-                string fbprojectFile = path + ".fbproject";
+                // Derive a sibling .fbproject file path:
+                //   "E:\path\MyMod" (directory) -> "E:\path\MyMod.fbproject" (file)
+                //   "E:\path\MyMod.fbproject" (directory) -> "E:\path\MyMod.fbproject" (file) — need different name
+                string parentDir = Path.GetDirectoryName(path);
+                string dirName = Path.GetFileName(path);
+
+                string fbprojectFile;
+                if (dirName.EndsWith(".fbproject", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Directory already ends with .fbproject — put the binary file inside the parent
+                    // with a "_binary.fbproject" suffix to avoid collision
+                    string baseName = dirName.Substring(0, dirName.Length - ".fbproject".Length);
+                    fbprojectFile = Path.Combine(parentDir, baseName + "_binary.fbproject");
+                }
+                else
+                {
+                    fbprojectFile = path + ".fbproject";
+                }
+
                 overrideFilename = fbprojectFile;
                 s_explodedDirPath = path;
 
-                App.Logger.Log("[SourceControl] Redirecting binary save to: " + fbprojectFile);
+                SCLog.Verbose("Redirecting binary save to: " + fbprojectFile);
             }
             else
             {
@@ -61,12 +80,12 @@ namespace Flurry.Editor.Patches
 
             try
             {
-                App.Logger.Log("[SourceControl] Exporting exploded directory: " + s_explodedDirPath);
+                SCLog.Verbose("Exporting exploded directory: " + s_explodedDirPath);
                 ProjectExporter.ExportDirectory(__instance, s_explodedDirPath, false);
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Save postfix failed: " + ex);
+                SCLog.Error("Save postfix failed: " + ex);
             }
             finally
             {
@@ -87,12 +106,26 @@ namespace Flurry.Editor.Patches
         {
             if (Directory.Exists(inFilename))
             {
-                App.Logger.Log("[SourceControl] Load intercepted (directory). Path: " + inFilename);
+                SCLog.Verbose("Load intercepted (directory). Path: " + inFilename);
 
-                var filenameField = AccessTools.Field(typeof(FrostyProject), "filename");
-                filenameField?.SetValue(__instance, inFilename);
+                try
+                {
+                    var filenameField = AccessTools.Field(typeof(FrostyProject), "filename");
+                    if (filenameField == null)
+                    {
+                        SCLog.Error("Could not find 'filename' field on FrostyProject");
+                        __result = false;
+                        return false;
+                    }
+                    filenameField.SetValue(__instance, inFilename);
 
-                __result = ProjectImporter.ImportDirectory(__instance, inFilename);
+                    __result = ProjectImporter.ImportDirectory(__instance, inFilename);
+                }
+                catch (Exception ex)
+                {
+                    SCLog.Error("Load failed: " + ex);
+                    __result = false;
+                }
                 return false;
             }
 
@@ -159,7 +192,7 @@ namespace Flurry.Editor.Patches
             }
             catch (Exception ex)
             {
-                App.Logger.LogError("[SourceControl] Menu reposition failed: " + ex.Message);
+                SCLog.Error("Menu reposition failed: " + ex.Message);
             }
         }
     }
