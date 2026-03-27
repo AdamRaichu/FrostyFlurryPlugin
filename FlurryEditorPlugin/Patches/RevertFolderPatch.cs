@@ -2,9 +2,12 @@ using App = Frosty.Core.App;
 using Frosty.Controls;
 using Frosty.Core.Controls;
 using Frosty.Core.Windows;
+using FrostySdk.Ebx;
+using FrostySdk.IO;
 using FrostySdk.Managers;
 using HarmonyLib;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -17,10 +20,10 @@ namespace Flurry.Editor.Patches
     // =========================================================================
     //  FEATURE: Revert entire folder in Data Explorer (#6)
     //
-    //  Adds a context menu to the folder tree with "Revert Folder" and
-    //  "Revert Folder & Subfolders" options. Collects all modified assets
-    //  under the selected path, confirms with the user, closes open tabs,
-    //  and reverts them.
+    //  Adds a context menu to the folder tree with "Revert Folder",
+    //  "Revert Folder + Subfolders", and reference-inclusive variants.
+    //  Collects all modified assets under the selected path, confirms with
+    //  the user, closes open tabs, and reverts them.
     // =========================================================================
 
     [HarmonyPatch(typeof(FrostyDataExplorer), "OnApplyTemplate")]
@@ -46,10 +49,16 @@ namespace Flurry.Editor.Patches
             var folderContextMenu = new ContextMenu();
 
             var revertFolderItem = new MenuItem { Header = "Revert Folder" };
-            revertFolderItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: false);
+            revertFolderItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: false, includeReferences: false);
 
             var revertSubfoldersItem = new MenuItem { Header = "Revert Folder + Subfolders" };
-            revertSubfoldersItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: true);
+            revertSubfoldersItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: true, includeReferences: false);
+
+            var revertRefsItem = new MenuItem { Header = "Revert Folder (including references)" };
+            revertRefsItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: false, includeReferences: true);
+
+            var revertSubfoldersRefsItem = new MenuItem { Header = "Revert Folder + Subfolders (including references)" };
+            revertSubfoldersRefsItem.Click += (s, e) => RevertFolder(__instance, treeView, includeSubfolders: true, includeReferences: true);
 
             // Add revert icon if available
             try
@@ -58,16 +67,20 @@ namespace Flurry.Editor.Patches
                 var revertIcon = converter.ConvertFromString("pack://application:,,,/FrostyEditor;component/Images/Revert.png") as ImageSource;
                 if (revertIcon != null)
                 {
-                    revertFolderItem.Icon = new Image { Source = revertIcon, Width = 16, Height = 16 };
-                    revertSubfoldersItem.Icon = new Image { Source = revertIcon, Width = 16, Height = 16 };
-                    RenderOptions.SetBitmapScalingMode(revertFolderItem.Icon as Image, BitmapScalingMode.Fant);
-                    RenderOptions.SetBitmapScalingMode(revertSubfoldersItem.Icon as Image, BitmapScalingMode.Fant);
+                    foreach (var item in new[] { revertFolderItem, revertSubfoldersItem, revertRefsItem, revertSubfoldersRefsItem })
+                    {
+                        item.Icon = new Image { Source = revertIcon, Width = 16, Height = 16 };
+                        RenderOptions.SetBitmapScalingMode(item.Icon as Image, BitmapScalingMode.Fant);
+                    }
                 }
             }
             catch { /* icon is optional */ }
 
             folderContextMenu.Items.Add(revertFolderItem);
             folderContextMenu.Items.Add(revertSubfoldersItem);
+            folderContextMenu.Items.Add(new Separator());
+            folderContextMenu.Items.Add(revertRefsItem);
+            folderContextMenu.Items.Add(revertSubfoldersRefsItem);
 
             // Only enable items when a folder is selected
             folderContextMenu.Opened += (s, e) =>
@@ -76,6 +89,8 @@ namespace Flurry.Editor.Patches
                 bool hasSelection = selectedItem != null && assetPathType != null && assetPathType.IsInstanceOfType(selectedItem);
                 revertFolderItem.IsEnabled = hasSelection;
                 revertSubfoldersItem.IsEnabled = hasSelection;
+                revertRefsItem.IsEnabled = hasSelection;
+                revertSubfoldersRefsItem.IsEnabled = hasSelection;
             };
 
             // Apply context menu to tree view items via style, preserving the existing theme style
@@ -87,7 +102,7 @@ namespace Flurry.Editor.Patches
             treeView.ItemContainerStyle = itemStyle;
         }
 
-        private static void RevertFolder(FrostyDataExplorer explorer, TreeView treeView, bool includeSubfolders)
+        private static void RevertFolder(FrostyDataExplorer explorer, TreeView treeView, bool includeSubfolders, bool includeReferences)
         {
             var selectedItem = treeView.SelectedItem;
             if (selectedItem == null || fullPathProp == null)
@@ -98,33 +113,45 @@ namespace Flurry.Editor.Patches
                 return;
 
             // Collect all modified assets in this folder (and optionally subfolders)
-            var toRevert = new List<AssetEntry>();
+            var folderAssets = new HashSet<AssetEntry>();
 
             foreach (EbxAssetEntry entry in App.AssetManager.EnumerateEbx(modifiedOnly: true))
             {
                 if (MatchesFolder(entry.Path, folderPath, includeSubfolders))
-                    toRevert.Add(entry);
+                    folderAssets.Add(entry);
             }
             foreach (ResAssetEntry entry in App.AssetManager.EnumerateRes(modifiedOnly: true))
             {
                 if (MatchesFolder(entry.Path, folderPath, includeSubfolders))
-                    toRevert.Add(entry);
+                    folderAssets.Add(entry);
             }
             foreach (ChunkAssetEntry entry in App.AssetManager.EnumerateChunks(modifiedOnly: true))
             {
                 if (MatchesFolder(entry.Path ?? "", folderPath, includeSubfolders))
-                    toRevert.Add(entry);
+                    folderAssets.Add(entry);
             }
 
-            if (toRevert.Count == 0)
+            if (folderAssets.Count == 0)
             {
                 FrostyMessageBox.Show("No modified assets in this folder.", "Revert Folder");
                 return;
             }
 
+            // Expand with reverse references if requested
+            var toRevert = folderAssets;
+            if (includeReferences)
+            {
+                var reverseIndex = BuildReverseReferenceIndex();
+                var expanded = new HashSet<AssetEntry>();
+                foreach (var asset in folderAssets)
+                    CollectReverseDependencies(asset, expanded, reverseIndex);
+                toRevert = expanded;
+            }
+
             string scope = includeSubfolders ? "folder and all subfolders" : "folder";
+            string refNote = includeReferences ? $" (+ {toRevert.Count - folderAssets.Count} referencing asset(s))" : "";
             var result = FrostyMessageBox.Show(
-                $"Revert {toRevert.Count} modified asset(s) in this {scope}?\n\nFolder: {folderPath}\n\nThis cannot be undone.",
+                $"Revert {toRevert.Count} modified asset(s) in this {scope}?{refNote}\n\nFolder: {folderPath}\n\nThis cannot be undone.",
                 "Revert Folder",
                 MessageBoxButton.YesNo);
 
@@ -136,6 +163,7 @@ namespace Flurry.Editor.Patches
 
             // Revert all — suppress per-asset OnModify events to avoid
             // rebuilding the data explorer on every single revert
+            int total = toRevert.Count;
             FrostyTaskWindow.Show("Reverting Folder", folderPath, (task) =>
             {
                 int count = 0;
@@ -143,7 +171,7 @@ namespace Flurry.Editor.Patches
                 {
                     App.AssetManager.RevertAsset(entry, suppressOnModify: true);
                     count++;
-                    task.Update($"Reverted {count}/{toRevert.Count}");
+                    task.Update($"Reverted {count}/{total}");
                 }
             });
 
@@ -151,6 +179,88 @@ namespace Flurry.Editor.Patches
             RefreshAllExplorers();
             App.Logger.Log($"Reverted {toRevert.Count} asset(s) in {folderPath}");
         }
+
+        #region Reverse Reference Walking
+
+        private static Dictionary<AssetEntry, HashSet<AssetEntry>> BuildReverseReferenceIndex()
+        {
+            var index = new Dictionary<AssetEntry, HashSet<AssetEntry>>();
+
+            foreach (var ebx in App.AssetManager.EnumerateEbx(modifiedOnly: true))
+            {
+                var dataObject = ebx.ModifiedEntry?.DataObject;
+                if (dataObject == null)
+                    continue;
+
+                foreach (var referenced in ExtractReferencedAssets(dataObject))
+                {
+                    if (!index.TryGetValue(referenced, out var list))
+                    {
+                        list = new HashSet<AssetEntry>();
+                        index[referenced] = list;
+                    }
+                    list.Add(ebx);
+                }
+            }
+
+            return index;
+        }
+
+        private static void CollectReverseDependencies(
+            AssetEntry asset,
+            HashSet<AssetEntry> result,
+            Dictionary<AssetEntry, HashSet<AssetEntry>> reverseIndex)
+        {
+            if (!result.Add(asset))
+                return;
+
+            if (reverseIndex.TryGetValue(asset, out var dependents))
+            {
+                foreach (var dep in dependents)
+                    CollectReverseDependencies(dep, result, reverseIndex);
+            }
+        }
+
+        private static IEnumerable<AssetEntry> ExtractReferencedAssets(object root)
+        {
+            var result = new HashSet<AssetEntry>();
+            var visited = new HashSet<object>();
+
+            void Walk(object obj)
+            {
+                if (obj == null || visited.Contains(obj))
+                    return;
+                visited.Add(obj);
+
+                if (obj is PointerRef pointer && pointer.Type == PointerRefType.External)
+                {
+                    var entry = App.AssetManager.GetEbxEntry(pointer.External.FileGuid);
+                    if (entry != null)
+                        result.Add(entry);
+                    return;
+                }
+
+                if (obj is IEnumerable enumerable && !(obj is string))
+                {
+                    foreach (var item in enumerable)
+                        Walk(item);
+                    return;
+                }
+
+                var type = obj.GetType();
+                foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    if (!prop.CanRead) continue;
+                    try { Walk(prop.GetValue(obj)); }
+                    catch { /* ignore broken getters */ }
+                }
+            }
+
+            Walk(root);
+            return result;
+        }
+
+        #endregion
 
         private static void RefreshAllExplorers()
         {
@@ -182,7 +292,7 @@ namespace Flurry.Editor.Patches
                 return assetPath.Equals(folderPath, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void CloseTabsForAssets(List<AssetEntry> assets)
+        private static void CloseTabsForAssets(IEnumerable<AssetEntry> assets)
         {
             try
             {
@@ -191,25 +301,29 @@ namespace Flurry.Editor.Patches
 
                 var mainWindowType = mainWindow.GetType();
                 var tabControlField = AccessTools.Field(mainWindowType, "tabControl");
+                var shutdownMethod = AccessTools.Method(mainWindowType, "ShutdownEditorAndRemoveTab");
                 var removeTabMethod = AccessTools.Method(mainWindowType, "RemoveTab");
                 var tabControl = tabControlField?.GetValue(mainWindow) as TabControl;
 
-                if (tabControl == null || removeTabMethod == null) return;
+                if (tabControl == null) return;
 
                 var assetNames = new HashSet<string>(assets.Select(a => a.Name));
-                var tabsToRemove = new List<object>();
+                var tabsToClose = new List<FrostyTabItem>();
 
                 for (int i = 1; i < tabControl.Items.Count; i++)
                 {
-                    var tabItem = tabControl.Items[i];
-                    var tabIdProp = tabItem?.GetType().GetProperty("TabId");
-                    string tabId = tabIdProp?.GetValue(tabItem) as string;
-                    if (tabId != null && assetNames.Contains(tabId))
-                        tabsToRemove.Add(tabItem);
+                    var tabItem = tabControl.Items[i] as FrostyTabItem;
+                    if (tabItem != null && tabItem.TabId != null && assetNames.Contains(tabItem.TabId))
+                        tabsToClose.Add(tabItem);
                 }
 
-                foreach (var tab in tabsToRemove)
-                    removeTabMethod.Invoke(mainWindow, new[] { tab });
+                foreach (var tab in tabsToClose)
+                {
+                    if (tab.Content is FrostyAssetEditor assetEditor && shutdownMethod != null)
+                        shutdownMethod.Invoke(mainWindow, new object[] { assetEditor, tab });
+                    else if (removeTabMethod != null)
+                        removeTabMethod.Invoke(mainWindow, new object[] { tab });
+                }
             }
             catch { /* non-critical — tabs just stay open */ }
         }
