@@ -7,6 +7,7 @@ using FrostySdk.Attributes;
 using FrostySdk.Ebx;
 using FrostySdk.IO;
 using FrostySdk.Managers;
+using HarmonyLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,6 +21,9 @@ namespace Flurry.Editor
     public sealed class DbxReader
     {
         private static readonly BindingFlags s_propertyBindingFlags = BindingFlags.Public | BindingFlags.Instance;
+
+        private static readonly AccessTools.FieldRef<EbxAsset, List<int>> ebxAsset_refCountsAccessor = AccessTools.FieldRefAccess<EbxAsset, List<int>>("refCounts");
+        private static readonly AccessTools.FieldRef<EbxAsset, List<object>> ebxAsset_objectsAccessor = AccessTools.FieldRefAccess<EbxAsset, List<object>>("objects");
 
         private readonly XmlDocument m_xml = new XmlDocument();
         private readonly Dictionary<Guid, (object ebxInstance, XmlNode xmlNode)> m_guidToObjAndXml = new Dictionary<Guid, (object, XmlNode)>();
@@ -120,7 +124,19 @@ namespace Flurry.Editor
             bool isRoot = (instGuid == m_primaryInstGuid) || (m_ebx.Objects.Count() == 0);
             if (isRoot)
             {
-                m_ebx.AddRootObject(obj);
+                //m_ebx.AddRootObject(obj);
+                List<object> objects = ebxAsset_objectsAccessor(m_ebx);
+                List<int> refCounts = ebxAsset_refCountsAccessor(m_ebx);
+                if (objects.Contains(obj))
+                {
+                    int index = objects.IndexOf(obj);
+                    refCounts[index] = 0;
+                }
+                else
+                {
+                    refCounts.Add(0);
+                    objects.Add(obj);
+                }
             }
             else
             {
