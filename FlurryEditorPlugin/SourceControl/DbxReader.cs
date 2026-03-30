@@ -1,6 +1,7 @@
 // Originally written by wannkunstbeikor
 // Ported to v1.0.6.3 API with roundtrip XML deserialization support.
 
+using Flurry.Editor.SourceControl;
 using Frosty.Core;
 using FrostySdk;
 using FrostySdk.Attributes;
@@ -148,7 +149,7 @@ namespace Flurry.Editor
 
         #region Field Reading
 
-        private void ReadInstanceFields(XmlNode node, object obj, Type objType)
+        public void ReadInstanceFields(XmlNode node, object obj, Type objType)
         {
             foreach (XmlNode child in node.ChildNodes)
             {
@@ -156,7 +157,7 @@ namespace Flurry.Editor
             }
         }
 
-        private void ReadField(ref object obj, XmlNode node, Type objType,
+        public void ReadField(ref object obj, XmlNode node, Type objType,
             bool isArray = false, bool isRef = false, Type arrayElementType = null, EbxFieldType? arrayElementFieldType = null)
         {
             switch (node.Name)
@@ -231,7 +232,7 @@ namespace Flurry.Editor
 
         #region Array Reading
 
-        private object ReadArray(XmlNode node)
+        public object ReadArray(XmlNode node)
         {
             string arrayTypeStr = GetAttr(node, "type");
             bool isRef = arrayTypeStr.StartsWith("ref(");
@@ -274,7 +275,7 @@ namespace Flurry.Editor
 
         #region Struct Reading
 
-        private object ReadStruct(Type structType, XmlNode node)
+        public object ReadStruct(Type structType, XmlNode node)
         {
             Type type = structType;
             if (type == null)
@@ -286,6 +287,12 @@ namespace Flurry.Editor
 
             if (type == null)
                 throw new InvalidDataException("Unknown struct type in XML");
+
+            foreach (DbxConversionTransformer transformer in DbxConversionTransformer.Extensions) {
+                if (transformer.IsTypeSupported(type)) {
+                    return transformer.ReadFromDbx(this, node);
+                }
+            }
 
             object obj = Activator.CreateInstance(type);
 
@@ -301,7 +308,7 @@ namespace Flurry.Editor
 
         #region BoxedValueRef Reading
 
-        private void ReadBoxedValueRef(object parentObj, Type parentType, XmlNode node)
+        public void ReadBoxedValueRef(object parentObj, Type parentType, XmlNode node)
         {
             string fieldName = GetAttr(node, "name");
             string typeName = GetAttr(node, "typeName");
@@ -350,7 +357,7 @@ namespace Flurry.Editor
 
         #region TypeRef Reading
 
-        private void ReadTypeRef(object parentObj, Type parentType, XmlNode node)
+        public void ReadTypeRef(object parentObj, Type parentType, XmlNode node)
         {
             string fieldName = GetAttr(node, "name");
             string typeName = GetAttr(node, "typeName");
@@ -363,7 +370,7 @@ namespace Flurry.Editor
 
         #region Pointer Resolution
 
-        private PointerRef ParseRef(XmlNode node, string refGuid)
+        public PointerRef ParseRef(XmlNode node, string refGuid)
         {
             if (refGuid == "null")
                 return new PointerRef();
@@ -402,7 +409,7 @@ namespace Flurry.Editor
 
         #region Property Setting
 
-        private static void SetProperty(object obj, Type objType, string propName, object propValue)
+        public static void SetProperty(object obj, Type objType, string propName, object propValue)
         {
             PropertyInfo property = objType.GetProperty(propName, s_propertyBindingFlags);
             if (property != null && property.CanWrite && propValue != null)
@@ -411,7 +418,7 @@ namespace Flurry.Editor
             }
         }
 
-        private static void SetPropertyFromString(object obj, Type objType, string propName, string propValue)
+        public static void SetPropertyFromString(object obj, Type objType, string propName, string propValue)
         {
             PropertyInfo property = objType.GetProperty(propName, s_propertyBindingFlags);
             if (property == null || !property.CanWrite) return;
@@ -422,7 +429,7 @@ namespace Flurry.Editor
                 property.SetValue(obj, value);
         }
 
-        private static object GetValueFromString(Type propType, string propValue, EbxFieldType? fieldType = null)
+        public static object GetValueFromString(Type propType, string propValue, EbxFieldType? fieldType = null)
         {
             if (propType == typeof(CString)) return (CString)propValue;
             if (propType == typeof(string)) return propValue;
@@ -476,12 +483,12 @@ namespace Flurry.Editor
                 refCountsField.SetValue(asset, new List<int>());
         }
 
-        private static string GetAttr(XmlNode node, string name)
+        public static string GetAttr(XmlNode node, string name)
         {
             return node.Attributes?.GetNamedItem(name)?.Value;
         }
 
-        private static void SetInstanceGuid(object obj, AssetClassGuid guid)
+        public static void SetInstanceGuid(object obj, AssetClassGuid guid)
         {
             FieldInfo fi = obj.GetType().GetField("__Guid", BindingFlags.NonPublic | BindingFlags.Instance);
             if (fi != null)
@@ -494,7 +501,7 @@ namespace Flurry.Editor
             }
         }
 
-        private static EbxFieldType InferFieldType(object value)
+        public static EbxFieldType InferFieldType(object value)
         {
             if (value == null) return EbxFieldType.Struct;
             Type t = value.GetType();
@@ -508,7 +515,7 @@ namespace Flurry.Editor
             return EbxFieldType.Struct;
         }
 
-        private static Type GetPrimitiveType(string name)
+        public static Type GetPrimitiveType(string name)
         {
             switch (name)
             {

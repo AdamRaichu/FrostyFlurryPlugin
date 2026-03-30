@@ -1,6 +1,7 @@
 // Originally written by wannkunstbeikor
 // Ported to v1.0.6.3 API with roundtrip XML serialization support.
 
+using Flurry.Editor.SourceControl;
 using Frosty.Core;
 using FrostySdk;
 using FrostySdk.Attributes;
@@ -71,7 +72,7 @@ namespace Flurry.Editor
 
         #region Instance Writing
 
-        private void WriteInstance(object ebxObj)
+        public void WriteInstance(object ebxObj)
         {
             Type ebxType = ebxObj.GetType();
             AssetClassGuid guid = GetInstanceGuid(ebxObj);
@@ -93,7 +94,7 @@ namespace Flurry.Editor
 
         #region Field Writing
 
-        private void WriteField(EbxFieldType fieldType, object obj, Type objType, Type baseType,
+        public void WriteField(EbxFieldType fieldType, object obj, Type objType, Type baseType,
             string fieldName = null, bool isArrayItem = false, bool isTransient = false, bool isHidden = false)
         {
             switch (fieldType)
@@ -173,7 +174,7 @@ namespace Flurry.Editor
             }
         }
 
-        private void WriteFieldStart(string name, bool isArrayField, bool isTransient, bool isHidden)
+        public void WriteFieldStart(string name, bool isArrayField, bool isTransient, bool isHidden)
         {
             m_xmlWriter.WriteStartElement(isArrayField ? "item" : "field");
             if (!isArrayField)
@@ -188,7 +189,7 @@ namespace Flurry.Editor
 
         #region Simple Value Writing
 
-        private void WriteFieldValue(string fieldName, object value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
+        public void WriteFieldValue(string fieldName, object value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
         {
             if (fieldName != null)
                 WriteFieldStart(fieldName, isArrayField, isTransient, isHidden);
@@ -213,7 +214,7 @@ namespace Flurry.Editor
                 m_xmlWriter.WriteEndElement();
         }
 
-        private void WriteResourceRef(string fieldName, ResourceRef value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
+        public void WriteResourceRef(string fieldName, ResourceRef value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
         {
             if (fieldName != null)
                 WriteFieldStart(fieldName, isArrayField, isTransient, isHidden);
@@ -228,7 +229,7 @@ namespace Flurry.Editor
 
         #region PointerRef Writing
 
-        private void WritePointerRef(string fieldName, PointerRef value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
+        public void WritePointerRef(string fieldName, PointerRef value, bool isArrayField = false, bool isTransient = false, bool isHidden = false)
         {
             if (fieldName != null)
                 WriteFieldStart(fieldName, isArrayField, isTransient, isHidden);
@@ -265,7 +266,7 @@ namespace Flurry.Editor
 
         #region Array Writing
 
-        private void WriteArray(string arrayName, object arrayObj, Type arrayType, Type baseType)
+        public void WriteArray(string arrayName, object arrayObj, Type arrayType, Type baseType)
         {
             Type elementType;
             bool isRef = false;
@@ -311,8 +312,17 @@ namespace Flurry.Editor
 
         #region Struct Writing
 
-        private void WriteStruct(string structName, object structObj, Type structType, bool isArrayItem = false)
+        public void WriteStruct(string structName, object structObj, Type structType, bool isArrayItem = false)
         {
+            foreach (DbxConversionTransformer transformer in DbxConversionTransformer.Extensions)
+            {
+                if (transformer.IsTypeSupported(structType))
+                {
+                    transformer.WriteToDbx(this, m_xmlWriter, structName, structObj, isArrayItem);
+                    return;
+                }
+            }
+
             m_xmlWriter.WriteStartElement("complex");
             if (!isArrayItem)
             {
@@ -346,7 +356,7 @@ namespace Flurry.Editor
 
         #region BoxedValueRef Writing
 
-        private void WriteBoxedValueRef(string name, BoxedValueRef boxedValue)
+        public void WriteBoxedValueRef(string name, BoxedValueRef boxedValue)
         {
             m_xmlWriter.WriteStartElement("boxed");
             m_xmlWriter.WriteAttributeString("name", name);
@@ -365,7 +375,7 @@ namespace Flurry.Editor
 
         #region TypeRef Writing
 
-        private void WriteTypeRef(string name, TypeRef typeRef)
+        public void WriteTypeRef(string name, TypeRef typeRef)
         {
             m_xmlWriter.WriteStartElement("typeref");
             m_xmlWriter.WriteAttributeString("name", name);
@@ -380,7 +390,7 @@ namespace Flurry.Editor
 
         #region Delegate Writing
 
-        private void WriteDelegate(string name, object delegateObj)
+        public void WriteDelegate(string name, object delegateObj)
         {
             m_xmlWriter.WriteStartElement("delegate");
             m_xmlWriter.WriteAttributeString("name", name);
@@ -408,7 +418,7 @@ namespace Flurry.Editor
 
         #region Class Writing
 
-        private void WriteDbxClass(Type classType, object classObj)
+        public void WriteDbxClass(Type classType, object classObj)
         {
             List<PropertyInfo> properties = new List<PropertyInfo>();
             GetAllProperties(classType, ref properties, true, true);
@@ -433,7 +443,7 @@ namespace Flurry.Editor
 
         #region Helpers
 
-        private static AssetClassGuid GetInstanceGuid(object obj)
+        public static AssetClassGuid GetInstanceGuid(object obj)
         {
             FieldInfo fi = obj.GetType().GetField("__Guid", BindingFlags.NonPublic | BindingFlags.Instance);
             if (fi != null)
@@ -442,7 +452,7 @@ namespace Flurry.Editor
             return ((dynamic)obj).GetInstanceGuid();
         }
 
-        private void GetAllProperties(Type classType, ref List<PropertyInfo> properties, bool checkBaseTypes = false, bool shouldSort = false)
+        public void GetAllProperties(Type classType, ref List<PropertyInfo> properties, bool checkBaseTypes = false, bool shouldSort = false)
         {
             PropertyInfo[] currentTypeProps = classType.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
@@ -472,7 +482,7 @@ namespace Flurry.Editor
             }
         }
 
-        private static EbxFieldType InferFieldType(object value)
+        public static EbxFieldType InferFieldType(object value)
         {
             if (value == null) return EbxFieldType.Struct;
 
