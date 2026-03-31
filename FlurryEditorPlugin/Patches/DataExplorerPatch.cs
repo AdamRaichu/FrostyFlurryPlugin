@@ -1,5 +1,6 @@
 using Frosty.Core;
 using Frosty.Core.Controls;
+using FrostySdk;
 using FrostySdk.Managers;
 using HarmonyLib;
 using System;
@@ -106,7 +107,7 @@ namespace Flurry.Editor.Patches
             {
                 PlacementTarget = typeFilterGrid,
                 Placement = PlacementMode.Bottom,
-                StaysOpen = true, // We manage closing ourselves
+                StaysOpen = true,
                 AllowsTransparency = true,
                 Width = 250,
                 Child = new Border
@@ -144,7 +145,7 @@ namespace Flurry.Editor.Patches
                 }
             };
 
-            // Helper to open the dropdown fresh
+            // Helper to open the dropdown fresh (shows all types, clears search text)
             bool isOpening = false;
             Action openDropdown = () =>
             {
@@ -157,34 +158,32 @@ namespace Flurry.Editor.Patches
                 searchBox.Focus();
             };
 
+            // Helper to restore display text to current selection
+            Action restoreDisplayText = () =>
+            {
+                isOpening = true;
+                searchBox.Text = selectedTypeMap.ContainsKey(__instance)
+                    ? selectedTypeMap[__instance]
+                    : "All Types";
+                isOpening = false;
+            };
+
             dropdownButton.Checked += (s, e) => openDropdown();
             dropdownButton.Unchecked += (s, e) =>
             {
                 popup.IsOpen = false;
-
-                // Restore display text to current selection
-                searchBox.Text = selectedTypeMap.ContainsKey(__instance)
-                    ? selectedTypeMap[__instance]
-                    : "All Types";
+                restoreDisplayText();
             };
 
             // Close popup when user clicks elsewhere in the application
             EventHandler lostFocusHandler = null;
             lostFocusHandler = (s, e) =>
             {
-                // Only close if neither the search box nor the list has focus
                 if (!searchBox.IsKeyboardFocusWithin && !typeList.IsKeyboardFocusWithin && !dropdownButton.IsMouseOver)
                 {
                     popup.IsOpen = false;
                     dropdownButton.IsChecked = false;
-
-                    // Restore display text if user didn't pick anything
-                    if (string.IsNullOrEmpty(searchBox.Text) || (!allTypes.Contains(searchBox.Text) && searchBox.Text != "All Types"))
-                    {
-                        searchBox.Text = selectedTypeMap.ContainsKey(__instance)
-                            ? selectedTypeMap[__instance]
-                            : "All Types";
-                    }
+                    restoreDisplayText();
                 }
             };
             searchBox.LostKeyboardFocus += (s, e) => lostFocusHandler(s, e);
@@ -204,18 +203,21 @@ namespace Flurry.Editor.Patches
                 repopulateList(searchBox.Text);
             };
 
-            // Selection applies the type filter independently — no search box text modification
+            // Selection applies the type filter independently of the search box
             Action<string> applySelection = (string selected) =>
             {
-                searchBox.Text = selected ?? "All Types";
                 popup.IsOpen = false;
+                dropdownButton.IsChecked = false;
+
+                isOpening = true;
+                searchBox.Text = selected ?? "All Types";
+                isOpening = false;
 
                 if (selected == null || selected == "All Types")
                     selectedTypeMap.Remove(__instance);
                 else
                     selectedTypeMap[__instance] = selected;
 
-                // Refresh the explorer to apply the filter
                 __instance.RefreshAll();
             };
 
@@ -247,6 +249,8 @@ namespace Flurry.Editor.Patches
                 else if (e.Key == Key.Escape)
                 {
                     popup.IsOpen = false;
+                    dropdownButton.IsChecked = false;
+                    restoreDisplayText();
                     e.Handled = true;
                 }
                 else if (e.Key == Key.Down && typeList.Items.Count > 0)
@@ -267,20 +271,20 @@ namespace Flurry.Editor.Patches
 
         /// <summary>
         /// Postfix on FilterText — if a type is selected in our dropdown,
-        /// additionally reject entries that don't match, independent of the search box.
+        /// additionally reject entries whose type is not the selected type
+        /// or a subclass of it.
         /// </summary>
         [HarmonyPatch("FilterText")]
         [HarmonyPostfix]
         public static void FilterBySelectedType(FrostyDataExplorer __instance, AssetEntry inEntry, ref bool __result)
         {
-            // If already filtered out by the normal filter, don't override
             if (!__result)
                 return;
 
             if (selectedTypeMap.TryGetValue(__instance, out string selectedType))
             {
                 string entryType = inEntry.Type ?? "";
-                if (!entryType.Equals(selectedType, StringComparison.OrdinalIgnoreCase))
+                if (!TypeLibrary.IsSubClassOf(entryType, selectedType))
                     __result = false;
             }
         }
@@ -293,8 +297,28 @@ namespace Flurry.Editor.Patches
             {
                 foreach (EbxAssetEntry entry in App.AssetManager.EnumerateEbx())
                 {
-                    if (!string.IsNullOrEmpty(entry.Type))
-                        types.Add(entry.Type);
+                    if (string.IsNullOrEmpty(entry.Type))
+                        continue;
+
+                    if (types.Contains(entry.Type))
+                        continue;
+
+                    types.Add(entry.Type);
+
+                    // Walk up the inheritance chain to include parent types
+                    Type type = TypeLibrary.GetType(entry.Type);
+                    if (type == null)
+                        continue;
+
+                    type = type.BaseType;
+                    while (type != null && type != typeof(object))
+                    {
+                        string name = type.Name;
+                        if (types.Contains(name))
+                            break; // Already walked this chain
+                        types.Add(name);
+                        type = type.BaseType;
+                    }
                 }
             }
 
