@@ -24,10 +24,17 @@ namespace Flurry.Editor.Patches
         private static readonly Dictionary<FrostyDataExplorer, string> selectedTypeMap =
             new Dictionary<FrostyDataExplorer, string>();
 
+        // Track which instances have already been patched
+        private static readonly HashSet<FrostyDataExplorer> patchedInstances =
+            new HashSet<FrostyDataExplorer>();
+
         [HarmonyPatch("OnApplyTemplate")]
         [HarmonyPostfix]
         public static void InjectTypeFilterComboBox(FrostyDataExplorer __instance)
         {
+            if (!patchedInstances.Add(__instance))
+                return; // already patched this instance
+
             TextBox filterTextBox = filterTextBoxRef(__instance);
             if (filterTextBox == null)
                 return;

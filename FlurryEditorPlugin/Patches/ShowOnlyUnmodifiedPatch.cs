@@ -4,18 +4,22 @@ using HarmonyLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 
 namespace Flurry.Editor.Patches
 {
     // =========================================================================
-    //  FEATURE: Show only UNmodified in Data Explorer (#4)
+    //  FEATURE: Show only UNmodified in Data Explorer
     //
     //  Adds a "Show only unmodified" checkbox next to the existing
     //  "Show only modified" checkbox. Both are mutually exclusive.
-    //  Also patches UpdateTreeView and UpdateListView to respect the filter.
+    //  Patches UpdateTreeView to skip modified entries (no empty folders)
+    //  and UpdateListView to filter the asset list.
     // =========================================================================
 
     [HarmonyPatch(typeof(FrostyDataExplorer))]
@@ -36,6 +40,10 @@ namespace Flurry.Editor.Patches
         [HarmonyPostfix]
         public static void OnApplyTemplate_Postfix(FrostyDataExplorer __instance)
         {
+            bool existsInDict = ShowOnlyUnmodified.TryGetValue(__instance, out bool _);
+            if (existsInDict)
+                return; // already patched this instance
+
             var modifiedCheckBox = showOnlyModifiedCheckBoxField?.GetValue(__instance) as CheckBox;
             if (modifiedCheckBox == null)
                 return;
@@ -90,34 +98,137 @@ namespace Flurry.Editor.Patches
         }
 
         // =====================================================
-        //  Patch UpdateTreeView to filter out modified assets
+        //  Reflection refs for UpdateTreeView replacement
         // =====================================================
         private static readonly FieldInfo assetTreeViewField
             = AccessTools.Field(typeof(FrostyDataExplorer), "assetTreeView");
         private static readonly FieldInfo selectedPathField
             = AccessTools.Field(typeof(FrostyDataExplorer), "selectedPath");
+        private static readonly FieldInfo assetPathMappingField
+            = AccessTools.Field(typeof(FrostyDataExplorer), "assetPathMapping");
         private static readonly PropertyInfo itemsSourceProp
             = typeof(FrostyDataExplorer).GetProperty("ItemsSource");
-        private static readonly PropertyInfo showOnlyModifiedProp
-            = typeof(FrostyDataExplorer).GetProperty("ShowOnlyModified");
         private static readonly MethodInfo filterTextMethod
             = AccessTools.Method(typeof(FrostyDataExplorer), "FilterText");
         private static readonly MethodInfo updateListViewMethod
             = AccessTools.Method(typeof(FrostyDataExplorer), "UpdateListView");
 
+        // AssetPath is internal, so we use reflection
+        private static readonly Type assetPathType
+            = typeof(FrostyDataExplorer).Assembly.GetType("Frosty.Core.Controls.AssetPath");
+        private static readonly ConstructorInfo assetPathCtor
+            = assetPathType?.GetConstructor(new[] { typeof(string), typeof(string), assetPathType, typeof(bool) });
+        private static readonly PropertyInfo assetPathChildrenProp
+            = assetPathType?.GetProperty("Children");
+        private static readonly PropertyInfo assetPathPathNameProp
+            = assetPathType?.GetProperty("PathName");
+        private static readonly PropertyInfo assetPathFullPathProp
+            = assetPathType?.GetProperty("FullPath");
+        private static readonly PropertyInfo assetPathIsSelectedProp
+            = assetPathType?.GetProperty("IsSelected");
+        private static readonly MethodInfo assetPathUpdatePathNameMethod
+            = assetPathType?.GetMethod("UpdatePathName");
+
+        // =====================================================
+        //  Replace UpdateTreeView when show-only-unmodified
+        // =====================================================
         [HarmonyPatch("UpdateTreeView")]
         [HarmonyPrefix]
-        public static void UpdateTreeView_Prefix(FrostyDataExplorer __instance, ref bool __runOriginal)
+        public static bool UpdateTreeView_Prefix(FrostyDataExplorer __instance)
         {
-            // Only intercept when "show only unmodified" is active
-            // Otherwise let the original (or other patches) run
             if (!ShowOnlyUnmodified.TryGetValue(__instance, out bool showUnmod) || !showUnmod)
-                return;
+                return true; // let original run
 
-            // When show-only-unmodified is on, we need the original UpdateTreeView
-            // to skip modified entries. We do this by temporarily toggling off any
-            // conflicting state — the actual filtering happens in UpdateListView below.
-            // The tree will be rebuilt by the original method since ShowOnlyModified is false.
+            var treeView = assetTreeViewField?.GetValue(__instance) as TreeView;
+            if (treeView == null)
+                return true;
+
+            var selectedPath = selectedPathField?.GetValue(__instance);
+            if (selectedPath != null)
+                assetPathIsSelectedProp?.SetValue(selectedPath, false);
+
+            var itemsSource = itemsSourceProp?.GetValue(__instance) as IEnumerable;
+            if (itemsSource == null)
+                return false;
+
+            var assetPathMapping = assetPathMappingField?.GetValue(__instance) as IDictionary;
+            if (assetPathMapping == null)
+                return true;
+
+            // Build the tree, mirroring the original but skipping modified entries
+            object root = assetPathCtor.Invoke(new object[] { "", "", null, false });
+            var rootChildren = assetPathChildrenProp.GetValue(root) as IList;
+
+            foreach (AssetEntry entry in itemsSource)
+            {
+                // Skip modified entries (show only unmodified)
+                if (entry.IsModified)
+                    continue;
+
+                if (filterTextMethod != null && !(bool)filterTextMethod.Invoke(__instance, new object[] { entry.Name, entry }))
+                    continue;
+
+                string[] arr = entry.Path.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                object next = root;
+
+                foreach (string path in arr)
+                {
+                    var nextChildren = assetPathChildrenProp.GetValue(next) as IList;
+                    bool found = false;
+
+                    foreach (object child in nextChildren)
+                    {
+                        string childPathName = assetPathPathNameProp.GetValue(child) as string;
+                        if (childPathName.Equals(path, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (path.ToCharArray().Any(char.IsUpper))
+                                assetPathUpdatePathNameMethod.Invoke(child, new object[] { path });
+
+                            next = child;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        string nextFullPath = assetPathFullPathProp.GetValue(next) as string;
+                        string fullPath = nextFullPath + "/" + path;
+                        object newPath;
+
+                        if (!assetPathMapping.Contains(fullPath))
+                        {
+                            newPath = assetPathCtor.Invoke(new object[] { path, fullPath, next, false });
+                            assetPathMapping.Add(fullPath, newPath);
+                        }
+                        else
+                        {
+                            newPath = assetPathMapping[fullPath];
+                            var newPathChildren = assetPathChildrenProp.GetValue(newPath) as IList;
+                            newPathChildren.Clear();
+
+                            if (newPath == selectedPath)
+                                assetPathIsSelectedProp.SetValue(selectedPath, true);
+                        }
+
+                        nextChildren.Add(newPath);
+                        next = newPath;
+                    }
+                }
+            }
+
+            // Add [root] node
+            string rootKey = "/";
+            if (!assetPathMapping.Contains(rootKey))
+                assetPathMapping.Add(rootKey, assetPathCtor.Invoke(new object[] { "![root]", "", null, true }));
+            rootChildren.Insert(0, assetPathMapping[rootKey]);
+
+            treeView.ItemsSource = rootChildren;
+            treeView.Items.SortDescriptions.Add(new SortDescription("PathName", ListSortDirection.Ascending));
+
+            updateListViewMethod.Invoke(__instance, new object[] { selectedPathField.GetValue(__instance) });
+
+            return false; // skip original
         }
 
         // =====================================================
@@ -150,7 +261,7 @@ namespace Flurry.Editor.Patches
             if (itemsSource == null)
                 return true;
 
-            string fullPath = path.GetType().GetProperty("FullPath")?.GetValue(path) as string;
+            string fullPath = assetPathFullPathProp?.GetValue(path) as string;
             string key = fullPath?.Trim('/') ?? "";
 
             var items = new List<AssetEntry>();
