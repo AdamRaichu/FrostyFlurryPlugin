@@ -40,6 +40,9 @@ namespace Flurry.Editor.Patches
         private static AccessTools.FieldRef<MainWindow, TreeView> BookmarkTreeViewRef = AccessTools.FieldRefAccess<MainWindow, TreeView>("BookmarkTreeView");
         private static AccessTools.FieldRef<MainWindow, Button> launchButtonRef = AccessTools.FieldRefAccess<MainWindow, Button>("launchButton");
         private static AccessTools.FieldRef<MainWindow, Menu> menuRef = AccessTools.FieldRefAccess<MainWindow, Menu>("menu");
+        private static AccessTools.FieldRef<MainWindow, MenuItem> recentProjectsMenuItemRef = AccessTools.FieldRefAccess<MainWindow, MenuItem>("recentProjectsMenuItem");
+        private static AccessTools.FieldRef<MainWindow, List<string>> m_recentProjectsRef = AccessTools.FieldRefAccess<MainWindow, List<string>>("m_recentProjects");
+        private static AccessTools.FieldRef<MainWindow, MenuItem> m_clearRecentsMenuItemRef = AccessTools.FieldRefAccess<MainWindow, MenuItem>("m_clearRecentsMenuItem");
 
         // Patches: Extra export button
 
@@ -538,7 +541,125 @@ namespace Flurry.Editor.Patches
             }
 
             loadProjectMethod.Invoke(mainWindow, new object[] { dir, false });
+            __instance.AddRecentProject(dir);
             #endregion
+        }
+
+        [HarmonyPatch("RefreshRecentProjects")]
+        [HarmonyPrefix]
+        public static bool AllowFxprojectDirsInRecentProjects (MainWindow __instance)
+        {
+            MenuItem recentProjectsMenuItem = recentProjectsMenuItemRef(__instance);
+            List<string> m_recentProjects = m_recentProjectsRef(__instance);
+            MenuItem m_clearRecentsMenuItem = m_clearRecentsMenuItemRef(__instance);
+
+            recentProjectsMenuItem.Items.Clear();
+
+            // check if there are no recent projects to display
+            if (m_recentProjects.Count == 0)
+            {
+                recentProjectsMenuItem.IsEnabled = false;
+                return false;
+            }
+
+            MenuItem currentMenuItem;
+            int projectIndex = 1;
+
+            // create a new list containing the current recent projects and iterate over that, which avoids any "collection modified" exceptions
+            foreach (string recentProject in new List<string>(m_recentProjects))
+            {
+                bool isDir = false;
+                if (Directory.Exists(recentProject))
+                {
+                    if (!File.Exists(Path.Combine(recentProject, "project.fxproject"))) {
+                        m_recentProjects.Remove(recentProject);
+
+                        // save the modified list of recent projects to the config
+                        Config.Add("RecentProjects", m_recentProjects, ConfigScope.Game);
+                        Config.Save();
+
+                        continue;
+                    }
+                    isDir = true;
+                } else if (!File.Exists(recentProject)) // check if the current project does not exist
+                {
+                    m_recentProjects.Remove(recentProject);
+
+                    // save the modified list of recent projects to the config
+                    Config.Add("RecentProjects", m_recentProjects, ConfigScope.Game);
+                    Config.Save();
+
+                    continue;
+                }
+
+                string displayName = string.Format("{0}: {1}...\\{2}", new object[]
+                    {
+                        projectIndex,
+                        Path.GetPathRoot(recentProject),
+                        isDir ?
+                            recentProject.Split(Path.DirectorySeparatorChar).Last() :
+                            Path.GetFileName(recentProject)
+                    });
+                currentMenuItem = new MenuItem
+                {
+                    // Using a text block prevents underscores from disappearing.
+                    Header = new TextBlock
+                    {
+                        Text = displayName,
+                        //TextTrimming = TextTrimming.CharacterEllipsis,
+                        ToolTip = recentProject
+                    },
+                    Height = 22,
+                    Icon = new Image
+                    {
+                        Source = new ImageSourceConverter().ConvertFromString($"pack://application:,,,/FrostyEditor;component/Images/{(isDir ? "Open" : "New")}.png") as ImageSource,
+                        Width = 16
+                    }
+                };
+
+                currentMenuItem.Click += delegate (object sender, RoutedEventArgs e)
+                {
+                    // check if the recent project no longer exists
+                    if (!(File.Exists(recentProject) || 
+                        (Directory.Exists(recentProject) && 
+                            File.Exists(Path.Combine(recentProject, "project.fxproject"))
+                        )
+                    ))
+                    {
+                        FrostyMessageBox.Show("The selected project does not exist.", "Frosty Editor");
+
+                        // refresh the displayed recent projects to accommodate for the missing project
+                        __instance.RefreshRecentProjects();
+                        return;
+                    }
+
+                    // check if the user does not wish to load the selected recent project
+                    if (__instance.AskIfShouldSaveProject() == MessageBoxResult.Cancel)
+                    {
+                        return;
+                    }
+
+                    // load the recent project
+                    AccessTools.Method(typeof(MainWindow), "LoadProject", new Type[] { typeof(string), typeof(bool) })
+                        .Invoke(__instance, new object[] { recentProject, false });
+                };
+
+                recentProjectsMenuItem.Items.Add(currentMenuItem);
+                projectIndex++;
+            }
+
+            // check if all recent projects did not exist by checking if the quantity of projects is zero
+            if (m_recentProjects.Count == 0)
+            {
+                // execute RefreshRecentProjects within itself to handle the lack of projects
+                __instance.RefreshRecentProjects();
+                return false;
+            }
+
+            recentProjectsMenuItem.Items.Add(new Separator());
+            recentProjectsMenuItem.Items.Add(m_clearRecentsMenuItem);
+            recentProjectsMenuItem.IsEnabled = true;
+            return false;
         }
 
         class ExportModMenuItemCommand_AlwaysCanExecute : ICommand
