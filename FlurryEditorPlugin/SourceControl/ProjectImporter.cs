@@ -18,10 +18,10 @@ namespace Flurry.Editor
     {
         public static bool ImportDirectory(FrostyProject project, string path)
         {
-            string projectJsonPath = Path.Combine(path, "project.json");
+            string projectJsonPath = Path.Combine(path, "project.fxproject");
             if (!File.Exists(projectJsonPath))
             {
-                SCLog.Error("No project.json found in: " + path);
+                SCLog.Error("No project.fxproject found in: " + path);
                 return false;
             }
 
@@ -33,13 +33,13 @@ namespace Flurry.Editor
             }
             catch (Exception ex)
             {
-                SCLog.Error("Failed to read project.json: " + ex.Message);
+                SCLog.Error("Failed to read project.fxproject: " + ex.Message);
                 return false;
             }
 
             if (projectJson == null)
             {
-                SCLog.Error("project.json deserialized to null");
+                SCLog.Error("project.fxproject deserialized to null");
                 return false;
             }
 

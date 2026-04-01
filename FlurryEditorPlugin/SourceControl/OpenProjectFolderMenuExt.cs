@@ -22,10 +22,10 @@ namespace Flurry.Editor
             if (folderPath == null)
                 return;
 
-            if (!File.Exists(Path.Combine(folderPath, "project.json")))
+            if (!File.Exists(Path.Combine(folderPath, "project.fxproject")))
             {
                 MessageBox.Show(
-                    "The selected folder does not contain a project.json file.\n\nSelect a folder that was saved with the Exploded Directory Format.",
+                    "The selected folder does not contain a project.fxproject file.\n\nSelect a folder that was saved with the Exploded Directory Format.",
                     "Not a Project Folder",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);

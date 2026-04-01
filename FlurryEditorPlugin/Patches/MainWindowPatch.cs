@@ -1,4 +1,4 @@
-﻿using App = Frosty.Core.App;
+﻿using Flurry.Editor.Windows;
 using Frosty.Controls;
 using Frosty.Core;
 using Frosty.Core.Attributes;
@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,8 +27,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Xml;
+using App = Frosty.Core.App;
 using Formatting = Newtonsoft.Json.Formatting;
-using Flurry.Editor.Windows;
 
 namespace Flurry.Editor.Patches
 {
@@ -503,6 +504,40 @@ namespace Flurry.Editor.Patches
                 };
                 bookmarksContextMenu.Items.Add(copyFilePathOption);
             }
+            #endregion
+
+            #region Source Control - Load FXProject on open
+            //App.Logger.Log(Environment.GetCommandLineArgs().Join(null, ", "));
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Count() < 2)
+            {
+                // Only one argument (the executable itself), so no file was passed in
+                return;
+            }
+
+            string openedFile = args[1];
+            if (!openedFile.EndsWith(".fxproject", StringComparison.OrdinalIgnoreCase))
+            {
+                // Not a .fxproject file, ignore.
+                return;
+            }
+
+            // load fxproject file
+            string dir = Path.GetDirectoryName(openedFile);
+            //ProjectImporter.ImportDirectory(dir);
+
+            Window mainWindow = __instance;
+
+            MethodInfo loadProjectMethod = mainWindow.GetType().GetMethod("LoadProject",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            if (loadProjectMethod == null)
+            {
+                SCLog.Error(" Could not find LoadProject method");
+                return;
+            }
+
+            loadProjectMethod.Invoke(mainWindow, new object[] { dir, false });
             #endregion
         }
 

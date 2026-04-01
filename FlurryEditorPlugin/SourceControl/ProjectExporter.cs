@@ -29,7 +29,7 @@ namespace Flurry.Editor
             ModSettings modSettings = project.ModSettings;
 
             WriteProjectJson(project, path);
-            SCLog.Verbose("Wrote project.json");
+            SCLog.Verbose("Wrote project.fxproject");
             WriteModImages(modSettings, path);
 
             try
@@ -65,7 +65,7 @@ namespace Flurry.Editor
             SCLog.Log("Project saved to exploded directory: " + path);
         }
 
-        #region project.json
+        #region project.fxproject
 
         private static void WriteProjectJson(FrostyProject project, string basePath)
         {
@@ -140,7 +140,7 @@ namespace Flurry.Editor
             }
 
             string json = JsonConvert.SerializeObject(projectJson, s_jsonSettings);
-            File.WriteAllText(Path.Combine(basePath, "project.json"), json);
+            File.WriteAllText(Path.Combine(basePath, "project.fxproject"), json);
         }
 
         #endregion
