@@ -33,4 +33,3 @@ using System.Windows;
 [assembly: RegisterMenuExtension(typeof(ExportBinaryFileHashesExt), PluginManagerType.Editor)]
 [assembly: RegisterMenuExtension(typeof(OpenProjectFolderMenuExt), PluginManagerType.Editor)]
 //[assembly: RegisterDataExplorerContextMenu(typeof(XmlDiffGeneratorExtension))]
-[assembly: RegisterStartupAction(typeof(ProjectLoaderStartupActions))]
