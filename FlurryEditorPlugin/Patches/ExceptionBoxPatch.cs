@@ -65,16 +65,53 @@ namespace Flurry.Editor.Patches
             StackPanel buttonPanel = FindChild<StackPanel>(window, sp => sp.FlowDirection == FlowDirection.RightToLeft);
             if (buttonPanel == null) return;
 
-            Button copyButton = new Button
+            Button reportButton = new Button
             {
-                Content = "Copy to Clipboard",
-                Width = 110,
+                Content = "Copy Crash Report",
+                Width = 130,
                 Margin = new Thickness(5, 0, 0, 0)
             };
-            copyButton.Click += (s, e) =>
+            reportButton.Click += (s, e) =>
             {
-                try { Clipboard.SetText(window.ExceptionText ?? ""); }
-                catch { }
+                try
+                {
+                    StringBuilder sb = new StringBuilder();
+
+                    sb.AppendLine("=== Exception ===");
+                    sb.AppendLine(window.ExceptionText ?? "(no exception text)");
+                    sb.AppendLine();
+
+                    string logPath = GetCrashLogPath();
+                    if (File.Exists(logPath))
+                    {
+                        sb.AppendLine("=== Crash Log ===");
+                        sb.AppendLine(File.ReadAllText(logPath));
+                        sb.AppendLine();
+                    }
+
+                    string editorLogPath = Path.Combine(
+                        Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location) ?? AppDomain.CurrentDomain.BaseDirectory,
+                        "log.txt");
+                    if (File.Exists(editorLogPath))
+                    {
+                        sb.AppendLine("=== Editor Log (last 200 lines) ===");
+                        var lines = File.ReadAllLines(editorLogPath);
+                        int start = Math.Max(0, lines.Length - 200);
+                        for (int i = start; i < lines.Length; i++)
+                            sb.AppendLine(lines[i]);
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("=== Binary File Hashes ===");
+                    sb.AppendLine(FlurryEditorUtils.GetBinaryFileHashes());
+
+                    Clipboard.SetText(sb.ToString());
+                    Frosty.Core.App.Logger.Log("Copied full crash report to clipboard.");
+                }
+                catch (Exception ex)
+                {
+                    Frosty.Core.App.Logger.LogWarning("Failed to copy crash report: " + ex.Message);
+                }
             };
 
             Button logButton = new Button
@@ -96,7 +133,7 @@ namespace Flurry.Editor.Patches
                 }
             };
 
-            buttonPanel.Children.Add(copyButton);
+            buttonPanel.Children.Add(reportButton);
             buttonPanel.Children.Add(logButton);
         }
 
