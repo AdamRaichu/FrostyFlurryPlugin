@@ -46,24 +46,6 @@
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyControls\FrostyControls.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyHash\FrostyHash.vcxproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyPlugin\FrostyCore.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostySdk\FrostySdk.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="D:\Frosty\FrostyToolsuite\FrostyModManager\FrostyModManager.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-  </ItemGroup>
 	<ItemGroup>
 		<Resource Include="Images\InvertSelect.png" />
 		<Resource Include="Images\CircleCheck.png" />
@@ -74,7 +56,76 @@
 		<PackageReference Include="Costura.Fody" Version="6.0.0">
 			<PrivateAssets>all</PrivateAssets>
 		</PackageReference>
-		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
+		<PackageReference Include="Lib.Harmony" Version="2.4.2">
+			<Private>false</Private>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="FrostyControls">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyControls.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyCore">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyCore.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyEditor">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyEditor.exe</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyHash">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyHash.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyModManager">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyModManager.exe</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyModSupport">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyModSupport.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostySdk">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostySdk.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="Microsoft.CSharp">
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="Newtonsoft.Json">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\ThirdParty\Newtonsoft.Json.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="SharpDX.DXGI">
+	    <HintPath>C:\Users\Clay\Downloads\FrostyToolsuite-1.0.6.3\FrostyEditor\ThirdParty\SharpDX.DXGI.dll</HintPath>
+	    <Private>false</Private>
+	  </Reference>
+	  <Reference Include="FrostyCore">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyCore.dll</HintPath>
+	  </Reference>
+	  <Reference Include="FrostyEditor">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyEditor.exe</HintPath>
+	  </Reference>
+	  <Reference Include="FrostyHash">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyHash.dll</HintPath>
+	  </Reference>
+	  <Reference Include="FrostyModManager">
+	    <HintPath>..\..\..\..\Modding\FrostyModManager\FrostyModManager.exe</HintPath>
+	  </Reference>
+	  <Reference Include="FrostyModSupport">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostyModSupport.dll</HintPath>
+	  </Reference>
+	  <Reference Include="FrostySdk">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\FrostySdk.dll</HintPath>
+	  </Reference>
+	  <Reference Include="Microsoft.CSharp" />
+	  <Reference Include="Newtonsoft.Json">
+	    <HintPath>..\..\..\..\Modding\FrostyEditor\ThirdParty\Newtonsoft.Json.dll</HintPath>
+	  </Reference>
+	  <Reference Include="SharpDX.DXGI">
+	    <HintPath>C:\Users\Clay\Downloads\FrostyToolsuite-1.0.6.3\FrostyEditor\ThirdParty\SharpDX.DXGI.dll</HintPath>
+	  </Reference>
 	</ItemGroup>
 
   <!--
