@@ -1,7 +1,7 @@
 ﻿using Frosty.Controls;
 using Frosty.Core.Mod;
-using FrostyModManager;
 using HarmonyLib;
+using MM = FrostyModManager;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,16 +16,16 @@ using System.Windows.Media;
 
 namespace Flurry.Manager.Patches
 {
-    [HarmonyPatch(typeof(MainWindow))]
+    [HarmonyPatch(typeof(MM.MainWindow))]
     [HarmonyPatchCategory("flurry.manager")]
     public class MainWindow_ManagerUIPatches
     {
-        private static AccessTools.FieldRef<MainWindow, Button> removeButtonRef = AccessTools.FieldRefAccess<MainWindow, Button>("removeButton");
-        private static AccessTools.FieldRef<MainWindow, ListBox> appliedModsListRef = AccessTools.FieldRefAccess<MainWindow, ListBox>("appliedModsList");
-        public static AccessTools.FieldRef<MainWindow, FrostyPack> selectedPackRef = AccessTools.FieldRefAccess<MainWindow, FrostyPack>("selectedPack");
-        private static AccessTools.FieldRef<MainWindow, FrostyWatermarkTextBox> availableModsFilterTextBoxRef = AccessTools.FieldRefAccess<MainWindow, FrostyWatermarkTextBox>("availableModsFilterTextBox");
-        private static AccessTools.FieldRef<MainWindow, ListView> availableModsListRef = AccessTools.FieldRefAccess<MainWindow, ListView>("availableModsList");
-        private static AccessTools.FieldRef<MainWindow, Button> installModButtonRef = AccessTools.FieldRefAccess<MainWindow, Button>("installModButton");
+        private static AccessTools.FieldRef<MM.MainWindow, Button> removeButtonRef = AccessTools.FieldRefAccess<MM.MainWindow, Button>("removeButton");
+        private static AccessTools.FieldRef<MM.MainWindow, ListBox> appliedModsListRef = AccessTools.FieldRefAccess<MM.MainWindow, ListBox>("appliedModsList");
+        public static AccessTools.FieldRef<MM.MainWindow, MM.FrostyPack> selectedPackRef = AccessTools.FieldRefAccess<MM.MainWindow, MM.FrostyPack>("selectedPack");
+        private static AccessTools.FieldRef<MM.MainWindow, FrostyWatermarkTextBox> availableModsFilterTextBoxRef = AccessTools.FieldRefAccess<MM.MainWindow, FrostyWatermarkTextBox>("availableModsFilterTextBox");
+        private static AccessTools.FieldRef<MM.MainWindow, ListView> availableModsListRef = AccessTools.FieldRefAccess<MM.MainWindow, ListView>("availableModsList");
+        private static AccessTools.FieldRef<MM.MainWindow, Button> installModButtonRef = AccessTools.FieldRefAccess<MM.MainWindow, Button>("installModButton");
 
         public static Button invertSelectionButton = new Button()
         {
@@ -124,36 +124,36 @@ namespace Flurry.Manager.Patches
         #region Applied Mods Filter Refresh
         [HarmonyPatch("removeButton_Click")]
         [HarmonyPostfix]
-        public static void RefreshOnRemoveButtonClick(MainWindow __instance) {
+        public static void RefreshOnRemoveButtonClick(MM.MainWindow __instance) {
             RefreshFilter(__instance);
         }
         [HarmonyPatch("addModButton_Click")]
         [HarmonyPostfix]
-        public static void RefreshOnAddButtonClick(MainWindow __instance)
+        public static void RefreshOnAddButtonClick(MM.MainWindow __instance)
         {
             RefreshFilter(__instance);
         }
         [HarmonyPatch("uninstallModButton_Click")]
         [HarmonyPostfix]
-        public static void RefreshOnUninstallButtonClick(MainWindow __instance)
+        public static void RefreshOnUninstallButtonClick(MM.MainWindow __instance)
         {
             RefreshFilter(__instance);
         }
         [HarmonyPatch("availableModsList_MouseDoubleClick")]
         [HarmonyPostfix]
-        public static void RefreshOnApplyViaDoubleClick(MainWindow __instance)
+        public static void RefreshOnApplyViaDoubleClick(MM.MainWindow __instance)
         {
             RefreshFilter(__instance);
         }
         [HarmonyPatch("collectionModsList_MouseDoubleClick")]
         [HarmonyPostfix]
-        public static void RefreshOnApplyViaDoubleClick_Collection(MainWindow __instance)
+        public static void RefreshOnApplyViaDoubleClick_Collection(MM.MainWindow __instance)
         {
             RefreshFilter(__instance);
         }
         [HarmonyPatch("InstallMods")]
         [HarmonyPostfix]
-        public static void RefreshOnInstallMods(MainWindow __instance)
+        public static void RefreshOnInstallMods(MM.MainWindow __instance)
         {
             RefreshFilter(__instance);
         }
@@ -161,18 +161,18 @@ namespace Flurry.Manager.Patches
 
         [HarmonyPatch("LoadMenuExtensions")]
         [HarmonyPostfix]
-        public static void AddUIElements(MainWindow __instance) {
+        public static void AddUIElements(MM.MainWindow __instance) {
             #region Invert Button
             // Invert button
             FileLog.Debug("Within PostFix");
-            App.Logger.Log("Adding Invert Selection Button to Mod Manager UI");
+            Frosty.Core.App.Logger.Log("Adding Invert Selection Button to Mod Manager UI");
             Button removeButton = removeButtonRef(__instance);
             StackPanel parentPanel = (StackPanel)removeButton.Parent;
             
             invertSelectionButton.Click += (s, e) =>
             {
                 ListBox appliedModsList = appliedModsListRef(__instance);
-                foreach (FrostyAppliedMod mod in appliedModsList.SelectedItems)
+                foreach (MM.FrostyAppliedMod mod in appliedModsList.SelectedItems)
                 {
                     bool targetValue = !mod.IsEnabled;
                     if (Keyboard.IsKeyDown(Key.LeftShift))
@@ -285,13 +285,26 @@ namespace Flurry.Manager.Patches
             gridView.Columns.Add(new GridViewColumn() { Header = "Applied" });
             GridViewColumn appliedBindingColumn = gridView.Columns[2];
             appliedBindingColumn.CellTemplate = dt;
+
+            // Size column
+            var sizeFactory = new FrameworkElementFactory(typeof(TextBlock));
+            sizeFactory.SetBinding(TextBlock.TextProperty, new Binding(".")
+            {
+                Converter = new Flurry.Manager.Patches.ModSizeConverter()
+            });
+            sizeFactory.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+            sizeFactory.SetValue(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            var sizeDt = new DataTemplate { VisualTree = sizeFactory };
+            gridView.Columns.Add(new GridViewColumn() { Header = "Size", Width = 80, CellTemplate = sizeDt });
+            // End of Size column
+
             // End of Applied mods filter stuff
             #endregion
         }
 
         [HarmonyPatch("updateAppliedModButtons")]
         [HarmonyPostfix]
-        public static void UpdateInvertButtonState(MainWindow __instance)
+        public static void UpdateInvertButtonState(MM.MainWindow __instance)
         {
             ListBox appliedModsList = appliedModsListRef(__instance);
             if (appliedModsList.SelectedItem == null)
@@ -305,10 +318,10 @@ namespace Flurry.Manager.Patches
 
         [HarmonyPatch("availableModsFilter_LostFocus")]
         [HarmonyPrefix]
-        public static bool RefreshFilter(MainWindow __instance)
+        public static void RefreshFilter(MM.MainWindow __instance)
         {
             //
-            FrostyPack selectedPack = selectedPackRef(__instance);
+            MM.FrostyPack selectedPack = selectedPackRef(__instance);
             TextBox availableModsFilterTextBox = availableModsFilterTextBoxRef(__instance);
             ListView availableModsList = availableModsListRef(__instance);
 
@@ -348,9 +361,8 @@ namespace Flurry.Manager.Patches
             } */
 
             // Skips original method.
-            return false;
         }
-            
+
     }
 
     public class ModAppliedConverter : IValueConverter
@@ -358,8 +370,8 @@ namespace Flurry.Manager.Patches
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             String title = (String)value;
-            MainWindow mainWindow = (MainWindow)parameter;
-            FrostyPack selectedPack = MainWindow_ManagerUIPatches.selectedPackRef(mainWindow);
+            MM.MainWindow mainWindow = (MM.MainWindow)parameter;
+            MM.FrostyPack selectedPack = MainWindow_ManagerUIPatches.selectedPackRef(mainWindow);
 
             if (selectedPack != null)
             {
