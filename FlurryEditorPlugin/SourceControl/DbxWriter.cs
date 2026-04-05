@@ -8,10 +8,12 @@ using FrostySdk.Attributes;
 using FrostySdk.Ebx;
 using FrostySdk.IO;
 using FrostySdk.Managers;
+using HarmonyLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Xml;
 
@@ -19,6 +21,8 @@ namespace Flurry.Editor
 {
     public sealed class DbxWriter : IDisposable
     {
+        private static AccessTools.FieldRef<EbxAsset, List<int>> s_refCountsField = AccessTools.FieldRefAccess<EbxAsset, List<int>>("refCounts");
+
         private static readonly XmlWriterSettings s_settings = new XmlWriterSettings
         {
             Indent = true,
@@ -60,9 +64,12 @@ namespace Flurry.Editor
             m_xmlWriter.WriteAttributeString("guid", asset.FileGuid.ToString());
             m_xmlWriter.WriteAttributeString("primaryInstance", asset.RootInstanceGuid.ToString());
 
-            foreach (object obj in asset.Objects)
+            object[] objects = asset.Objects.ToArray();
+            List<int> refCounts = s_refCountsField(asset);
+            for (int i = 0; i < objects.Count(); i++)
             {
-                WriteInstance(obj);
+                // isRoot criteria from EbxAsset.RootObjects getter.
+                WriteInstance(objects[i], refCounts[i] == 0 || i == 0);
             }
 
             m_xmlWriter.WriteEndElement();
@@ -72,7 +79,7 @@ namespace Flurry.Editor
 
         #region Instance Writing
 
-        public void WriteInstance(object ebxObj)
+        public void WriteInstance(object ebxObj, bool isRoot = false)
         {
             Type ebxType = ebxObj.GetType();
             AssetClassGuid guid = GetInstanceGuid(ebxObj);
@@ -81,6 +88,7 @@ namespace Flurry.Editor
             m_xmlWriter.WriteAttributeString("guid", guid.ToString());
             m_xmlWriter.WriteAttributeString("type", ebxType.Name);
             m_xmlWriter.WriteAttributeString("exported", guid.IsExported.ToString());
+            m_xmlWriter.WriteAttributeString("root", isRoot.ToString());
 
             if (ebxType.IsClass)
             {

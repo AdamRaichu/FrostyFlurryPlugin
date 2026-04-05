@@ -191,6 +191,22 @@ namespace Flurry.Editor
             }
             return sb.ToString();
         }
+
+        public static void EmptyDirectory(string path)
+        {
+            DirectoryInfo di = new DirectoryInfo(path);
+
+            foreach (FileInfo file in di.EnumerateFiles())
+            {
+                file.Delete();
+            }
+            foreach (DirectoryInfo dir in di.EnumerateDirectories())
+            {
+                if (dir.Name.Equals(".git", StringComparison.OrdinalIgnoreCase))
+                    continue; // skip .git directory if present))
+                dir.Delete(true); // true means delete subdirectories and files recursively
+            }
+        }
     }
 
     public static class KyberSettings

@@ -22,75 +22,41 @@ namespace Flurry.Editor.Patches
         [ThreadStatic]
         private static string s_explodedDirPath;
 
-        public static void Prefix(FrostyProject __instance, ref string overrideFilename)
+        public static bool Prefix(FrostyProject __instance, ref string overrideFilename)
         {
             s_explodedDirPath = null;
 
             string path = !string.IsNullOrEmpty(overrideFilename) ? overrideFilename : __instance.Filename;
 
-            // If the project filename points to a directory (loaded from exploded format),
-            // we need to redirect the binary save to a .fbproject *file* alongside the directory
-            // so the original Save code doesn't try to File.Delete a directory (which fails with Access Denied).
             if (Directory.Exists(path))
             {
-                // Derive a sibling .fbproject file path:
-                //   "E:\path\MyMod" (directory) -> "E:\path\MyMod.fbproject" (file)
-                //   "E:\path\MyMod.fbproject" (directory) -> "E:\path\MyMod.fbproject" (file) — need different name
-                string parentDir = Path.GetDirectoryName(path);
-                string dirName = Path.GetFileName(path);
-
-                string fbprojectFile;
-                if (dirName.EndsWith(".fbproject", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Directory already ends with .fbproject — put the binary file inside the parent
-                    // with a "_binary.fbproject" suffix to avoid collision
-                    string baseName = dirName.Substring(0, dirName.Length - ".fbproject".Length);
-                    fbprojectFile = Path.Combine(parentDir, baseName + "_binary.fbproject");
-                }
-                else
-                {
-                    fbprojectFile = path + ".fbproject";
-                }
-
-                overrideFilename = fbprojectFile;
-                s_explodedDirPath = path;
-
-                SCLog.Verbose("Redirecting binary save to: " + fbprojectFile);
+                // clear the directory prior to save
+                FlurryEditorUtils.EmptyDirectory(path);
+                ProjectExporter.ExportDirectory(__instance, path, true, true);
+                return false;
             }
-            else
-            {
-                // Normal .fbproject file — check if exploded export is enabled
-                FlurryEditorConfig config = new FlurryEditorConfig();
-                config.Load();
 
-                if (config.ExplodedDirectoryFormat)
-                {
-                    // Derive exploded directory path alongside the .fbproject file
-                    string dirName = Path.GetFileNameWithoutExtension(path);
-                    string parentDir = Path.GetDirectoryName(path);
-                    s_explodedDirPath = Path.Combine(parentDir, dirName);
-                }
-            }
+            return true;
         }
 
         public static void Postfix(FrostyProject __instance)
         {
-            if (s_explodedDirPath == null)
-                return;
+            //if (s_explodedDirPath == null)
+            //    return;
 
-            try
-            {
-                SCLog.Verbose("Exporting exploded directory: " + s_explodedDirPath);
-                ProjectExporter.ExportDirectory(__instance, s_explodedDirPath, false);
-            }
-            catch (Exception ex)
-            {
-                SCLog.Error("Save postfix failed: " + ex);
-            }
-            finally
-            {
-                s_explodedDirPath = null;
-            }
+            //try
+            //{
+            //    SCLog.Verbose("Exporting exploded directory: " + s_explodedDirPath);
+            //    ProjectExporter.ExportDirectory(__instance, s_explodedDirPath, false, false);
+            //}
+            //catch (Exception ex)
+            //{
+            //    SCLog.Error("Save postfix failed: " + ex);
+            //}
+            //finally
+            //{
+            //    s_explodedDirPath = null;
+            //}
         }
     }
 

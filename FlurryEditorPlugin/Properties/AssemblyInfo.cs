@@ -31,5 +31,6 @@ using System.Windows;
 [assembly: RegisterOptionsExtension(typeof(FlurryEditorConfig), PluginManagerType.Editor)]
 [assembly: RegisterMenuExtension(typeof(LoadOrderEditorMenuExt), PluginManagerType.Editor)]
 [assembly: RegisterMenuExtension(typeof(ExportBinaryFileHashesExt), PluginManagerType.Editor)]
-[assembly: RegisterMenuExtension(typeof(OpenProjectFolderMenuExt), PluginManagerType.Editor)]
+//[assembly: RegisterMenuExtension(typeof(OpenProjectFolderMenuExt), PluginManagerType.Editor)] // legacy/outdated
 //[assembly: RegisterDataExplorerContextMenu(typeof(XmlDiffGeneratorExtension))]
+[assembly: RegisterMenuExtension(typeof(ExportToFolderMenuExt), PluginManagerType.Editor)]

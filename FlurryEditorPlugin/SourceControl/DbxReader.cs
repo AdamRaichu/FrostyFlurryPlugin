@@ -78,14 +78,25 @@ namespace Flurry.Editor
                     CreateInstance(child);
             }
 
-            foreach (var kvp in m_guidToObjAndXml)
-            {
-                ParseInstance(kvp.Value.xmlNode, kvp.Value.ebxInstance, kvp.Key);
-            }
+            App.Logger.Log($"Processing {m_guidToObjAndXml.Count} instances...");
+
+            //foreach (var kvp in m_guidToObjAndXml)
+            //{
+            //  ParseInstance(kvp.Value.xmlNode, kvp.Value.ebxInstance, kvp.Key);
+            //}
 
             FieldInfo refCountsField = typeof(EbxAsset).GetField("refCounts", BindingFlags.NonPublic | BindingFlags.Instance);
             if (refCountsField != null)
-                refCountsField.SetValue(m_ebx, m_guidToRefCount.Values.ToList());
+            {
+                // We use a list to ensure the ref counts are in the exact same order as the objects
+                List<int> refCounts = new List<int>();
+                foreach (var kvp in m_guidToObjAndXml)
+                {
+                    ParseInstance(kvp.Value.xmlNode, kvp.Value.ebxInstance, kvp.Key);
+                    refCounts.Add(m_guidToRefCount[kvp.Key]);
+                }
+                refCountsField.SetValue(m_ebx, refCounts);
+            }
         }
 
         #endregion
@@ -122,27 +133,16 @@ namespace Flurry.Editor
         {
             ReadInstanceFields(node, obj, obj.GetType());
 
-            bool isRoot = (instGuid == m_primaryInstGuid) || (m_ebx.Objects.Count() == 0);
+            bool isRoot = Boolean.Parse(GetAttr(node, "root"));
             if (isRoot)
             {
-                //m_ebx.AddRootObject(obj);
-                List<object> objects = ebxAsset_objectsAccessor(m_ebx);
-                List<int> refCounts = ebxAsset_refCountsAccessor(m_ebx);
-                if (objects.Contains(obj))
-                {
-                    int index = objects.IndexOf(obj);
-                    refCounts[index] = 0;
-                }
-                else
-                {
-                    refCounts.Add(0);
-                    objects.Add(obj);
-                }
+                App.Logger.Log($"Processing root object {instGuid.ToString()}");
+                m_guidToRefCount[instGuid] = 0;
             }
-            else
-            {
-                m_ebx.AddObject(obj);
-            }
+
+            // We always use AddObject instead of AddRootObject to preserve the GUID
+            // that was set in CreateInstance. AddObject also adds it to the objects list.
+            m_ebx.AddObject(obj);
         }
 
         #endregion

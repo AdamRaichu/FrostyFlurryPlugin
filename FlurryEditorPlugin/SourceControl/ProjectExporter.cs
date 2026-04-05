@@ -21,7 +21,7 @@ namespace Flurry.Editor
             NullValueHandling = NullValueHandling.Ignore
         };
 
-        public static void ExportDirectory(FrostyProject project, string path, bool updateDirtyState)
+        public static void ExportDirectory(FrostyProject project, string path, bool updateDirtyState, bool dirtyFilesOnly)
         {
             SCLog.Verbose("Export started: " + path);
             Directory.CreateDirectory(path);
@@ -34,7 +34,7 @@ namespace Flurry.Editor
 
             try
             {
-                WriteEbxAssets(path, updateDirtyState);
+                WriteEbxAssets(path, updateDirtyState, dirtyFilesOnly);
             }
             catch (Exception ex)
             {
@@ -164,7 +164,7 @@ namespace Flurry.Editor
 
         #region EBX Assets
 
-        private static void WriteEbxAssets(string basePath, bool updateDirtyState)
+        private static void WriteEbxAssets(string basePath, bool updateDirtyState, bool dirtyFilesOnly)
         {
             string ebxDir = Path.Combine(basePath, "ebx");
 
