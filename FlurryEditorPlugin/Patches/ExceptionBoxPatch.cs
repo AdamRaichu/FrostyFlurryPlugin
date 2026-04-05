@@ -1,8 +1,10 @@
 using Frosty.Core;
 using Frosty.Core.Controls;
 using FrostyEditor;
+using FrostySdk;
 using HarmonyLib;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -77,30 +79,312 @@ namespace Flurry.Editor.Patches
                 {
                     StringBuilder sb = new StringBuilder();
 
-                    sb.AppendLine("=== Exception ===");
+                    sb.AppendLine("=== Exception Details ===");
                     sb.AppendLine(window.ExceptionText ?? "(no exception text)");
                     sb.AppendLine();
 
-                    string logPath = GetCrashLogPath();
-                    if (File.Exists(logPath))
+                    sb.AppendLine("=== Project State ===");
+                    try
                     {
-                        sb.AppendLine("=== Crash Log ===");
-                        sb.AppendLine(File.ReadAllText(logPath));
+                        if (Application.Current.MainWindow is MainWindow win)
+                        {
+                            FrostyProject project = win.Project;
+                            sb.AppendLine($"Project: {project.DisplayName}");
+                            sb.AppendLine($"Profile: {ProfilesLibrary.ProfileName}");
+                            sb.AppendLine($"Is Dirty: {project.IsDirty}");
+                            sb.AppendLine($"Filename: {project.Filename ?? "Unsaved"}");
+
+                            int modifiedEbx = 0, addedEbx = 0, modifiedRes = 0, addedRes = 0, modifiedChunks = 0;
+                            var modifiedAssets = new List<string>();
+
+                            foreach (var entry in Frosty.Core.App.AssetManager.EnumerateEbx(modifiedOnly: true))
+                            {
+                                if (entry.IsDirectlyModified)
+                                {
+                                    modifiedEbx++;
+                                    modifiedAssets.Add($"  EBX: {entry.Name} ({entry.Type}) [Modified]");
+                                }
+                                else if (entry.IsAdded)
+                                {
+                                    addedEbx++;
+                                    modifiedAssets.Add($"  EBX: {entry.Name} ({entry.Type}) [Added]");
+                                }
+                            }
+
+                            foreach (var entry in Frosty.Core.App.AssetManager.EnumerateRes(modifiedOnly: true))
+                            {
+                                if (entry.IsDirectlyModified)
+                                {
+                                    modifiedRes++;
+                                    modifiedAssets.Add($"  RES: {entry.Name} (Type: {entry.ResType}) [Modified]");
+                                }
+                                else if (entry.IsAdded)
+                                {
+                                    addedRes++;
+                                    modifiedAssets.Add($"  RES: {entry.Name} (Type: {entry.ResType}) [Added]");
+                                }
+                            }
+
+                            foreach (var entry in Frosty.Core.App.AssetManager.EnumerateChunks(modifiedOnly: true))
+                            {
+                                if (entry.IsDirectlyModified)
+                                {
+                                    modifiedChunks++;
+                                    modifiedAssets.Add($"  Chunk: {entry.Name} [Modified]");
+                                }
+                            }
+
+                            sb.AppendLine($"Modified EBX: {modifiedEbx}");
+                            sb.AppendLine($"Added EBX: {addedEbx}");
+                            sb.AppendLine($"Modified RES: {modifiedRes}");
+                            sb.AppendLine($"Added RES: {addedRes}");
+                            sb.AppendLine($"Modified Chunks: {modifiedChunks}");
+                            sb.AppendLine();
+
+                            if (modifiedAssets.Count > 0 && modifiedAssets.Count <= 200)
+                            {
+                                sb.AppendLine("=== Modified Assets ===");
+                                foreach (var asset in modifiedAssets)
+                                    sb.AppendLine(asset);
+                                sb.AppendLine();
+                            }
+                            else if (modifiedAssets.Count > 200)
+                            {
+                                sb.AppendLine("=== Modified Assets (first 100) ===");
+                                for (int i = 0; i < 100; i++)
+                                    sb.AppendLine(modifiedAssets[i]);
+                                sb.AppendLine($"  ... and {modifiedAssets.Count - 100} more");
+                                sb.AppendLine();
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine("(unable to access main window)");
+                            sb.AppendLine();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"(failed to get project state: {ex.Message})");
                         sb.AppendLine();
                     }
 
-                    string editorLogPath = Path.Combine(
-                        Path.GetDirectoryName(Assembly.GetEntryAssembly()?.Location) ?? AppDomain.CurrentDomain.BaseDirectory,
-                        "log.txt");
-                    if (File.Exists(editorLogPath))
+                    sb.AppendLine("=== Crash Context ===");
+                    try
                     {
-                        sb.AppendLine("=== Editor Log (last 200 lines) ===");
-                        var lines = File.ReadAllLines(editorLogPath);
-                        int start = Math.Max(0, lines.Length - 200);
-                        for (int i = start; i < lines.Length; i++)
-                            sb.AppendLine(lines[i]);
+                        var exceptionText = window.ExceptionText ?? "";
+                        var lines = exceptionText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                        var operationKeywords = new Dictionary<string, string>
+                        {
+                            { "WriteProject", "Exporting mod" },
+                            { "SaveToMod", "Saving asset to mod" },
+                            { "Import", "Importing asset" },
+                            { "Export", "Exporting asset" },
+                            { "Load", "Loading asset" },
+                            { "OnApplyTemplate", "Applying UI template" },
+                            { "Save", "Saving project" },
+                            { "OpenAsset", "Opening asset" },
+                            { "GetEbx", "Loading EBX asset" },
+                            { "GetRes", "Loading RES asset" },
+                            { "GetResAs", "Loading resource as type" },
+                            { "ShaderBlockDepot", "Processing shader block depot" },
+                            { "MeshSet", "Processing mesh set" },
+                            { "Fbx", "Processing FBX file" },
+                            { "Texture", "Processing texture" },
+                            { "Bundle", "Processing bundle" },
+                        };
+
+                        var detectedOperations = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            foreach (var kvp in operationKeywords)
+                            {
+                                if (line.IndexOf(kvp.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    if (!detectedOperations.Contains(kvp.Value))
+                                        detectedOperations.Add(kvp.Value);
+                                }
+                            }
+                        }
+
+                        if (detectedOperations.Count > 0)
+                        {
+                            sb.AppendLine("  Detected operations:");
+                            foreach (var op in detectedOperations)
+                                sb.AppendLine($"    - {op}");
+                        }
+                        else
+                        {
+                            sb.AppendLine("  (no specific operation detected)");
+                        }
+
+                        var assetPaths = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            var pathMatch = System.Text.RegularExpressions.Regex.Match(line, @"[a-zA-Z0-9_/\\]+\.(ebx|res|chunk|fbx|mesh|dds|ttf|bundle)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            if (pathMatch.Success && !assetPaths.Contains(pathMatch.Value))
+                                assetPaths.Add(pathMatch.Value);
+                        }
+
+                        if (assetPaths.Count > 0)
+                        {
+                            sb.AppendLine("  Referenced assets in stack trace:");
+                            foreach (var path in assetPaths)
+                                sb.AppendLine($"    - {path}");
+                        }
+
+                        var pluginNames = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            var pluginMatch = System.Text.RegularExpressions.Regex.Match(line, @"(\w+Plugin)\.\w+");
+                            if (pluginMatch.Success && !pluginNames.Contains(pluginMatch.Groups[1].Value))
+                                pluginNames.Add(pluginMatch.Groups[1].Value);
+                        }
+
+                        if (pluginNames.Count > 0)
+                        {
+                            sb.AppendLine("  Involved plugins:");
+                            foreach (var plugin in pluginNames)
+                                sb.AppendLine($"    - {plugin}");
+                        }
+
+                        var handlerTypes = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            var handlerMatch = System.Text.RegularExpressions.Regex.Match(line, @"(\w+CustomActionHandler)\.\w+");
+                            if (handlerMatch.Success && !handlerTypes.Contains(handlerMatch.Groups[1].Value))
+                                handlerTypes.Add(handlerMatch.Groups[1].Value);
+                        }
+
+                        if (handlerTypes.Count > 0)
+                        {
+                            sb.AppendLine("  Custom handlers involved:");
+                            foreach (var handler in handlerTypes)
+                                sb.AppendLine($"    - {handler}");
+                        }
+
+                        if (detectedOperations.Count == 0 && assetPaths.Count == 0 && pluginNames.Count == 0 && handlerTypes.Count == 0)
+                        {
+                            sb.AppendLine("  (no additional context could be extracted)");
+                        }
+
                         sb.AppendLine();
                     }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  (failed to analyze crash context: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("=== Loaded Plugins ===");
+                    try
+                    {
+                        var pluginManager = Frosty.Core.App.PluginManager;
+                        var pluginsField = pluginManager.GetType().GetField("plugins", BindingFlags.NonPublic | BindingFlags.Instance)
+                                        ?? pluginManager.GetType().GetField("mPlugins", BindingFlags.NonPublic | BindingFlags.Instance);
+                        if (pluginsField != null)
+                        {
+                            var plugins = pluginsField.GetValue(pluginManager) as System.Collections.IEnumerable;
+                            if (plugins != null)
+                            {
+                                foreach (var plugin in plugins)
+                                {
+                                    var nameProp = plugin.GetType().GetProperty("Name") ?? plugin.GetType().GetProperty("DisplayName");
+                                    var versionProp = plugin.GetType().GetProperty("Version");
+                                    string name = nameProp?.GetValue(plugin)?.ToString() ?? plugin.GetType().Name;
+                                    string version = versionProp?.GetValue(plugin)?.ToString() ?? "unknown";
+                                    sb.AppendLine($"  {name} v{version}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine("  (unable to enumerate plugins)");
+                        }
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  (failed to get plugins: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("=== Open Editors ===");
+                    try
+                    {
+                        if (Application.Current.MainWindow is MainWindow win2)
+                        {
+                            var editorProp = win2.GetType().GetProperty("OpenEditors", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                                          ?? win2.GetType().GetProperty("Editors", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                            if (editorProp != null)
+                            {
+                                var editors = editorProp.GetValue(win2) as System.Collections.IEnumerable;
+                                if (editors != null)
+                                {
+                                    int count = 0;
+                                    foreach (var editor in editors)
+                                    {
+                                        var nameProp = editor.GetType().GetProperty("DisplayName") ?? editor.GetType().GetProperty("Title");
+                                        string name = nameProp?.GetValue(editor)?.ToString() ?? editor.GetType().Name;
+                                        sb.AppendLine($"  {name}");
+                                        count++;
+                                    }
+                                    if (count == 0)
+                                        sb.AppendLine("  (none)");
+                                }
+                                else
+                                {
+                                    sb.AppendLine("  (unable to enumerate editors)");
+                                }
+                            }
+                            else
+                            {
+                                sb.AppendLine("  (unable to find editors property)");
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine("  (unable to access main window)");
+                        }
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  (failed to get open editors: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    try
+                    {
+                        var logTextProp = Frosty.Core.App.Logger.GetType().GetProperty("LogText");
+                        if (logTextProp != null)
+                        {
+                            string internalLog = logTextProp.GetValue(Frosty.Core.App.Logger) as string;
+                            if (!string.IsNullOrEmpty(internalLog))
+                            {
+                                sb.AppendLine("=== Editor Log (internal) ===");
+                                sb.AppendLine(internalLog);
+                                sb.AppendLine();
+
+                                var lines = internalLog.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                                var errors = new List<string>();
+                                foreach (var line in lines)
+                                {
+                                    if (line.Contains("(WARNING)") || line.Contains("(ERROR)"))
+                                        errors.Add(line);
+                                }
+                                if (errors.Count > 0)
+                                {
+                                    sb.AppendLine("=== Pre-Exception Errors ===");
+                                    foreach (var err in errors)
+                                        sb.AppendLine(err);
+                                    sb.AppendLine();
+                                }
+                            }
+                        }
+                    }
+                    catch { }
 
                     sb.AppendLine("=== Binary File Hashes ===");
                     sb.AppendLine(FlurryEditorUtils.GetBinaryFileHashes());
