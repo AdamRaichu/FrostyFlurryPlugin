@@ -105,6 +105,14 @@
       <HintPath>E:\Modding\FrostyEditor\Plugins\MeshSetPlugin.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="ChunkResEditorPlugin">
+      <HintPath>E:\Modding\FrostyEditor\Plugins\ChunkResEditorPlugin.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="DuplicationPlugin">
+      <HintPath>E:\Modding\FrostyEditor\Plugins\DuplicationPlugin.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="0Harmony">
       <HintPath>ThirdParty\0Harmony.dll</HintPath>
     </Reference>
