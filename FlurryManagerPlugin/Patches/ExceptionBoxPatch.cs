@@ -1,12 +1,16 @@
 using Frosty.Core;
 using Frosty.Core.Controls;
+using Frosty.Core.Mod;
 using FrostyModManager;
+using FrostySdk;
 using HarmonyLib;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -65,16 +69,217 @@ namespace Flurry.Manager.Patches
             StackPanel buttonPanel = FindChild<StackPanel>(window, sp => sp.FlowDirection == FlowDirection.RightToLeft);
             if (buttonPanel == null) return;
 
-            Button copyButton = new Button
+            Button reportButton = new Button
             {
-                Content = "Copy to Clipboard",
-                Width = 110,
+                Content = "Copy Crash Report",
+                Width = 130,
                 Margin = new Thickness(5, 0, 0, 0)
             };
-            copyButton.Click += (s, e) =>
+            reportButton.Click += (s, e) =>
             {
-                try { Clipboard.SetText(window.ExceptionText ?? ""); }
-                catch { }
+                try
+                {
+                    StringBuilder sb = new StringBuilder();
+
+                    sb.AppendLine("=== Exception Details ===");
+                    sb.AppendLine(window.ExceptionText ?? "(no exception text)");
+                    sb.AppendLine();
+
+                    sb.AppendLine("=== Manager State ===");
+                    try
+                    {
+                        sb.AppendLine($"Profile: {ProfilesLibrary.ProfileName}");
+
+                        if (Application.Current.MainWindow is FrostyModManager.MainWindow managerWin)
+                        {
+                            var selectedPackField = AccessTools.Field(typeof(FrostyModManager.MainWindow), "selectedPack");
+                            var selectedPack = selectedPackField?.GetValue(managerWin) as FrostyPack;
+                            if (selectedPack != null)
+                            {
+                                sb.AppendLine($"Selected Pack: {selectedPack.Name}");
+                                sb.AppendLine($"Applied Mods ({selectedPack.AppliedMods.Count}):");
+                                foreach (FrostyAppliedMod mod in selectedPack.AppliedMods)
+                                {
+                                    string status = mod.IsFound
+                                        ? (mod.IsEnabled ? "Enabled" : "Disabled")
+                                        : "Missing";
+                                    sb.AppendLine($"  - {mod.ModName} [{status}]");
+                                }
+                            }
+                            else
+                            {
+                                sb.AppendLine("Selected Pack: (none)");
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine("(unable to access main window)");
+                        }
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"(failed to get manager state: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("=== Crash Context ===");
+                    try
+                    {
+                        var exceptionText = window.ExceptionText ?? "";
+                        var lines = exceptionText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                        var operationKeywords = new Dictionary<string, string>
+                        {
+                            { "Launch", "Launching game" },
+                            { "FrostyModExecutor", "Applying mods" },
+                            { "ModExecutor", "Executing mod application" },
+                            { "Install", "Installing mods" },
+                            { "Load", "Loading data" },
+                            { "OnApplyTemplate", "Applying UI template" },
+                            { "FileSystem", "Accessing file system" },
+                            { "Bundle", "Processing bundle" },
+                            { "Cas", "Processing CAS file" },
+                            { "Chunk", "Processing chunk" },
+                            { "Texture", "Processing texture" },
+                        };
+
+                        var detectedOperations = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            foreach (var kvp in operationKeywords)
+                            {
+                                if (line.IndexOf(kvp.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    if (!detectedOperations.Contains(kvp.Value))
+                                        detectedOperations.Add(kvp.Value);
+                                }
+                            }
+                        }
+
+                        if (detectedOperations.Count > 0)
+                        {
+                            sb.AppendLine("  Detected operations:");
+                            foreach (var op in detectedOperations)
+                                sb.AppendLine($"    - {op}");
+                        }
+                        else
+                        {
+                            sb.AppendLine("  (no specific operation detected)");
+                        }
+
+                        var pluginNames = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            var pluginMatch = Regex.Match(line, @"(\w+Plugin)\.\w+");
+                            if (pluginMatch.Success && !pluginNames.Contains(pluginMatch.Groups[1].Value))
+                                pluginNames.Add(pluginMatch.Groups[1].Value);
+                        }
+
+                        if (pluginNames.Count > 0)
+                        {
+                            sb.AppendLine("  Involved plugins:");
+                            foreach (var plugin in pluginNames)
+                                sb.AppendLine($"    - {plugin}");
+                        }
+
+                        var handlerTypes = new List<string>();
+                        foreach (var line in lines)
+                        {
+                            var handlerMatch = Regex.Match(line, @"(\w+CustomActionHandler)\.\w+");
+                            if (handlerMatch.Success && !handlerTypes.Contains(handlerMatch.Groups[1].Value))
+                                handlerTypes.Add(handlerMatch.Groups[1].Value);
+                        }
+
+                        if (handlerTypes.Count > 0)
+                        {
+                            sb.AppendLine("  Custom handlers involved:");
+                            foreach (var handler in handlerTypes)
+                                sb.AppendLine($"    - {handler}");
+                        }
+
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  (failed to analyze crash context: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    sb.AppendLine("=== Loaded Plugins ===");
+                    try
+                    {
+                        var pluginManager = Frosty.Core.App.PluginManager;
+                        var pluginsField = pluginManager.GetType().GetField("plugins", BindingFlags.NonPublic | BindingFlags.Instance)
+                                        ?? pluginManager.GetType().GetField("mPlugins", BindingFlags.NonPublic | BindingFlags.Instance);
+                        if (pluginsField != null)
+                        {
+                            var plugins = pluginsField.GetValue(pluginManager) as System.Collections.IEnumerable;
+                            if (plugins != null)
+                            {
+                                foreach (var plugin in plugins)
+                                {
+                                    var nameProp = plugin.GetType().GetProperty("Name") ?? plugin.GetType().GetProperty("DisplayName");
+                                    var versionProp = plugin.GetType().GetProperty("Version");
+                                    string name = nameProp?.GetValue(plugin)?.ToString() ?? plugin.GetType().Name;
+                                    string version = versionProp?.GetValue(plugin)?.ToString() ?? "unknown";
+                                    sb.AppendLine($"  {name} v{version}");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            sb.AppendLine("  (unable to enumerate plugins)");
+                        }
+                        sb.AppendLine();
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  (failed to get plugins: {ex.Message})");
+                        sb.AppendLine();
+                    }
+
+                    try
+                    {
+                        var logTextProp = Frosty.Core.App.Logger.GetType().GetProperty("LogText");
+                        if (logTextProp != null)
+                        {
+                            string internalLog = logTextProp.GetValue(Frosty.Core.App.Logger) as string;
+                            if (!string.IsNullOrEmpty(internalLog))
+                            {
+                                sb.AppendLine("=== Manager Log (internal) ===");
+                                sb.AppendLine(internalLog);
+                                sb.AppendLine();
+
+                                var logLines = internalLog.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                                var errors = new List<string>();
+                                foreach (var line in logLines)
+                                {
+                                    if (line.Contains("(WARNING)") || line.Contains("(ERROR)"))
+                                        errors.Add(line);
+                                }
+                                if (errors.Count > 0)
+                                {
+                                    sb.AppendLine("=== Pre-Exception Errors ===");
+                                    foreach (var err in errors)
+                                        sb.AppendLine(err);
+                                    sb.AppendLine();
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+
+                    Clipboard.SetText(sb.ToString());
+                    Frosty.Core.App.Logger.Log("Copied full crash report to clipboard.");
+                }
+                catch (Exception ex)
+                {
+                    // Fallback: just copy raw exception text
+                    try { Clipboard.SetText(window.ExceptionText ?? ""); }
+                    catch { }
+                    Frosty.Core.App.Logger.LogWarning("Failed to copy crash report: " + ex.Message);
+                }
             };
 
             Button logButton = new Button
@@ -96,7 +301,7 @@ namespace Flurry.Manager.Patches
                 }
             };
 
-            buttonPanel.Children.Add(copyButton);
+            buttonPanel.Children.Add(reportButton);
             buttonPanel.Children.Add(logButton);
         }
 
