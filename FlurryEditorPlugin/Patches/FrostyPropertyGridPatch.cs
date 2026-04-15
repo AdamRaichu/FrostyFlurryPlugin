@@ -15,6 +15,44 @@ using System.Windows.Media;
 
 namespace Flurry.Editor.Patches
 {
+    [HarmonyPatch(typeof(FrostyPropertyGridItemData))]
+    [HarmonyPatchCategory("flurry.editor")]
+    public class FilterGuidSiblingPatch
+    {
+        [HarmonyPatch("FilterGuid")]
+        [HarmonyPostfix]
+        public static void ShowSiblingsOnMatch(FrostyPropertyGridItemData __instance, bool __result, bool doNotHideSubObjects)
+        {
+            if (doNotHideSubObjects || __result)
+                return;
+
+            // Only unhide siblings when the current item is an array element (like [12]),
+            // so all fields of a matched connection/object (Source, Target, Flags, ...) are
+            // visible. Do NOT unhide at root/category level — that would also show unrelated
+            // top-level categories like LinkConnections/Interface that have no match.
+            if (!__instance.IsArrayChild)
+                return;
+
+            bool anyVisible = false;
+            foreach (var item in __instance.Children)
+            {
+                if (!item.IsHidden) { anyVisible = true; break; }
+            }
+            if (anyVisible)
+            {
+                foreach (var item in __instance.Children)
+                    UnhideRecursive(item);
+            }
+        }
+
+        private static void UnhideRecursive(FrostyPropertyGridItemData item)
+        {
+            item.IsHidden = false;
+            foreach (var child in item.Children)
+                UnhideRecursive(child);
+        }
+    }
+
     [HarmonyPatch(typeof(FrostyPropertyGridItem))]
     [HarmonyPatchCategory("flurry.editor")]
     public class FrostyPropertyGridPatch
