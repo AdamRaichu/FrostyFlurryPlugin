@@ -1,5 +1,6 @@
 ﻿using Frosty.Controls;
 using Frosty.Core.Mod;
+using Flurry.Manager.Windows;
 using HarmonyLib;
 using MM = FrostyModManager;
 using System;
@@ -26,6 +27,7 @@ namespace Flurry.Manager.Patches
         private static AccessTools.FieldRef<MM.MainWindow, FrostyWatermarkTextBox> availableModsFilterTextBoxRef = AccessTools.FieldRefAccess<MM.MainWindow, FrostyWatermarkTextBox>("availableModsFilterTextBox");
         private static AccessTools.FieldRef<MM.MainWindow, ListView> availableModsListRef = AccessTools.FieldRefAccess<MM.MainWindow, ListView>("availableModsList");
         private static AccessTools.FieldRef<MM.MainWindow, Button> installModButtonRef = AccessTools.FieldRefAccess<MM.MainWindow, Button>("installModButton");
+        private static readonly Dictionary<MM.MainWindow, ModConflictWindow> conflictWindows = new Dictionary<MM.MainWindow, ModConflictWindow>();
 
         public static Button invertSelectionButton = new Button()
         {
@@ -194,6 +196,16 @@ namespace Flurry.Manager.Patches
                 selectedPackRef(__instance).Refresh();
             };
             parentPanel.Children.Add(invertSelectionButton);
+
+            Button conflictExplorerButton = new Button()
+            {
+                Content = "Conflicts",
+                Margin = new Thickness(2, 0, 0, 0),
+                MinWidth = 85,
+                ToolTip = "Open a fast conflict explorer for applied mods",
+            };
+            conflictExplorerButton.Click += (s, e) => OpenConflictWindow(__instance);
+            parentPanel.Children.Add(conflictExplorerButton);
             // End of Invert button
             #endregion
 
@@ -300,6 +312,162 @@ namespace Flurry.Manager.Patches
 
             // End of Applied mods filter stuff
             #endregion
+        }
+
+        private static string ResolveAppliedModDisplayName(MM.FrostyAppliedMod appliedMod)
+        {
+            if (appliedMod == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(appliedMod.ModName))
+            {
+                return appliedMod.ModName;
+            }
+
+            IFrostyMod mod = appliedMod.Mod;
+            if (mod != null && mod.ModDetails != null && !string.IsNullOrWhiteSpace(mod.ModDetails.Title))
+            {
+                return mod.ModDetails.Title;
+            }
+
+            return string.Empty;
+        }
+
+        private static void RefreshAppliedModsUi(MM.MainWindow mainWindow)
+        {
+            MM.FrostyPack selectedPack = selectedPackRef(mainWindow);
+            if (selectedPack != null)
+            {
+                selectedPack.Refresh();
+            }
+
+            ListBox appliedModsList = appliedModsListRef(mainWindow);
+            if (appliedModsList != null)
+            {
+                appliedModsList.Items.Refresh();
+            }
+        }
+
+        private static bool MoveAppliedModInLoadOrder(MM.MainWindow mainWindow, string modDisplayName, int offset)
+        {
+            if (string.IsNullOrWhiteSpace(modDisplayName))
+            {
+                return false;
+            }
+
+            MM.FrostyPack selectedPack = selectedPackRef(mainWindow);
+            if (selectedPack == null || selectedPack.AppliedMods == null || selectedPack.AppliedMods.Count == 0)
+            {
+                return false;
+            }
+
+            int sourceIndex = -1;
+            for (int i = 0; i < selectedPack.AppliedMods.Count; i++)
+            {
+                string displayName = ResolveAppliedModDisplayName(selectedPack.AppliedMods[i]);
+                if (string.Equals(displayName, modDisplayName, StringComparison.OrdinalIgnoreCase))
+                {
+                    sourceIndex = i;
+                    break;
+                }
+            }
+
+            if (sourceIndex < 0)
+            {
+                return false;
+            }
+
+            int targetIndex = sourceIndex + offset;
+            if (targetIndex < 0 || targetIndex >= selectedPack.AppliedMods.Count)
+            {
+                return false;
+            }
+
+            MM.FrostyAppliedMod movingMod = selectedPack.AppliedMods[sourceIndex];
+            selectedPack.AppliedMods.RemoveAt(sourceIndex);
+            selectedPack.AppliedMods.Insert(targetIndex, movingMod);
+            RefreshAppliedModsUi(mainWindow);
+            return true;
+        }
+
+        private static bool SetAppliedModAsActive(MM.MainWindow mainWindow, string modDisplayName)
+        {
+            if (string.IsNullOrWhiteSpace(modDisplayName))
+            {
+                return false;
+            }
+
+            MM.FrostyPack selectedPack = selectedPackRef(mainWindow);
+            if (selectedPack == null || selectedPack.AppliedMods == null || selectedPack.AppliedMods.Count == 0)
+            {
+                return false;
+            }
+
+            int sourceIndex = -1;
+            for (int i = 0; i < selectedPack.AppliedMods.Count; i++)
+            {
+                string displayName = ResolveAppliedModDisplayName(selectedPack.AppliedMods[i]);
+                if (string.Equals(displayName, modDisplayName, StringComparison.OrdinalIgnoreCase))
+                {
+                    sourceIndex = i;
+                    break;
+                }
+            }
+
+            if (sourceIndex < 0)
+            {
+                return false;
+            }
+
+            MM.FrostyAppliedMod movingMod = selectedPack.AppliedMods[sourceIndex];
+            selectedPack.AppliedMods.RemoveAt(sourceIndex);
+            selectedPack.AppliedMods.Add(movingMod);
+            RefreshAppliedModsUi(mainWindow);
+            return true;
+        }
+
+        private static void OpenConflictWindow(MM.MainWindow mainWindow)
+        {
+            MM.FrostyPack selectedPack = selectedPackRef(mainWindow);
+            if (selectedPack == null || selectedPack.AppliedMods == null || selectedPack.AppliedMods.Count == 0)
+            {
+                Frosty.Core.App.Logger.LogWarning("No applied mods in the selected pack. Add mods first, then open Conflicts.");
+                return;
+            }
+
+            ModConflictWindow existingWindow;
+            if (conflictWindows.TryGetValue(mainWindow, out existingWindow))
+            {
+                if (existingWindow.IsVisible)
+                {
+                    existingWindow.RefreshFromSource();
+                    existingWindow.Activate();
+                    return;
+                }
+
+                conflictWindows.Remove(mainWindow);
+            }
+
+            ModConflictWindow window = new ModConflictWindow(
+                mainWindow,
+                () =>
+                {
+                    MM.FrostyPack currentPack = selectedPackRef(mainWindow);
+                    if (currentPack == null || currentPack.AppliedMods == null)
+                    {
+                        return new List<MM.FrostyAppliedMod>();
+                    }
+
+                    return new List<MM.FrostyAppliedMod>(currentPack.AppliedMods);
+                },
+                (modDisplayName, offset) => MoveAppliedModInLoadOrder(mainWindow, modDisplayName, offset),
+                modDisplayName => SetAppliedModAsActive(mainWindow, modDisplayName));
+
+            conflictWindows[mainWindow] = window;
+            window.Closed += (sender, args) => conflictWindows.Remove(mainWindow);
+            window.Show();
         }
 
         [HarmonyPatch("updateAppliedModButtons")]
