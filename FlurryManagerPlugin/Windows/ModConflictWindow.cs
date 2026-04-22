@@ -584,6 +584,15 @@ namespace Flurry.Manager.Windows
             copyButton.Click += CopySelectedConflict;
             controlsRow.Children.Add(copyButton);
 
+            Button copyAffectedFilesButton = new Button
+            {
+                Content = "Copy Affected Files",
+                Width = 150,
+                Margin = new Thickness(8, 0, 0, 0)
+            };
+            copyAffectedFilesButton.Click += CopyAffectedFilesList;
+            controlsRow.Children.Add(copyAffectedFilesButton);
+
             StackPanel legendRow = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -1275,6 +1284,37 @@ namespace Flurry.Manager.Windows
             {
                 statusText.Text = "Could not copy report right now (clipboard is busy).";
                 App.Logger.LogWarning("Conflict report copy failed because clipboard could not be opened.");
+            }
+        }
+
+        private void CopyAffectedFilesList(object sender, RoutedEventArgs e)
+        {
+            ModConflictPairEntry selectedPair = conflictListView.SelectedItem as ModConflictPairEntry;
+            if (selectedPair == null)
+            {
+                statusText.Text = "Select a mod pair first.";
+                return;
+            }
+
+            IReadOnlyList<ModConflictFileEntry> files = selectedPair.Files ?? Array.Empty<ModConflictFileEntry>();
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Mods: " + (selectedPair.WinnerMod ?? "(Unknown)") + " vs " + (selectedPair.OtherMod ?? "(Unknown)"));
+            sb.AppendLine("Affected Files (" + files.Count.ToString(CultureInfo.InvariantCulture) + "):");
+
+            for (int i = 0; i < files.Count; i++)
+            {
+                ModConflictFileEntry file = files[i];
+                sb.AppendLine((i + 1).ToString(CultureInfo.InvariantCulture) + ". [" + file.Outcome + "] " + file.DisplayName);
+            }
+
+            if (TrySetClipboardText(sb.ToString()))
+            {
+                statusText.Text = "Copied affected files list to clipboard.";
+            }
+            else
+            {
+                statusText.Text = "Could not copy list right now (clipboard is busy).";
+                App.Logger.LogWarning("Affected files list copy failed because clipboard could not be opened.");
             }
         }
 
