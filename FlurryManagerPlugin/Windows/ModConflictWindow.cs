@@ -22,14 +22,18 @@ namespace Flurry.Manager.Windows
 {
     internal sealed class ModConflictViewEntry
     {
+        public string ResourceKey { get; set; }
         public string ResourceName { get; set; }
         public string ResourceType { get; set; }
         public int ModCount { get; set; }
         public string RowSubtitle { get; set; }
         public string UsedInGameMod { get; set; }
+        public int ActiveModIndex { get; set; }
+        public bool IsRuleOverride { get; set; }
         public int OverriddenCount { get; set; }
         public string OverriddenPreview { get; set; }
         public string OverriddenModsDisplay { get; set; }
+        public IReadOnlyList<string> OverriddenMods { get; set; }
         public string LoadOrderPath { get; set; }
         public string ConflictStatus { get; set; }
         public IReadOnlyList<string> OrderedMods { get; set; }
@@ -80,6 +84,7 @@ namespace Flurry.Manager.Windows
 
         private sealed class ConflictBucket
         {
+            public string ResourceKey;
             public string ResourceName;
             public string ResourceType;
             public List<string> OrderedModNames = new List<string>();
@@ -101,6 +106,7 @@ namespace Flurry.Manager.Windows
         public static List<ModConflictViewEntry> Build(
             IList<MM.FrostyAppliedMod> appliedMods,
             bool enabledOnly,
+            IDictionary<string, string> assetOverrideRules,
             out int scannedMods,
             out int scannedAssets)
         {
@@ -156,6 +162,7 @@ namespace Flurry.Manager.Windows
                     {
                         bucket = new ConflictBucket
                         {
+                            ResourceKey = descriptor.Key,
                             ResourceName = descriptor.DisplayName,
                             ResourceType = descriptor.DisplayType
                         };
@@ -177,19 +184,39 @@ namespace Flurry.Manager.Windows
 
             return bucketsByResource.Values
                 .Where(bucket => bucket.OrderedModNames.Count > 1)
-                .Select(bucket => new ModConflictViewEntry
+                .Select(bucket =>
                 {
-                    ResourceName = bucket.ResourceName,
-                    ResourceType = bucket.ResourceType,
-                    ModCount = bucket.OrderedModNames.Count,
-                    RowSubtitle = BuildRowSubtitle(bucket),
-                    UsedInGameMod = bucket.OrderedModNames[bucket.OrderedModNames.Count - 1],
-                    OverriddenCount = bucket.OrderedModNames.Count - 1,
-                    OverriddenPreview = BuildOverriddenPreview(bucket.OrderedModNames),
-                    OverriddenModsDisplay = string.Join(", ", bucket.OrderedModNames.Take(bucket.OrderedModNames.Count - 1)),
-                    LoadOrderPath = string.Join(" -> ", bucket.OrderedModNames),
-                    ConflictStatus = BuildConflictStatus(bucket),
-                    OrderedMods = bucket.OrderedModNames.ToList()
+                    int activeIndex = bucket.OrderedModNames.Count - 1;
+                    bool isRuleOverride = TryResolveRuleOverrideIndex(bucket, assetOverrideRules, out int overrideIndex)
+                        && overrideIndex >= 0
+                        && overrideIndex < bucket.OrderedModNames.Count;
+                    if (isRuleOverride)
+                    {
+                        activeIndex = overrideIndex;
+                    }
+
+                    List<string> overriddenMods = bucket.OrderedModNames
+                        .Where((modName, index) => index != activeIndex)
+                        .ToList();
+
+                    return new ModConflictViewEntry
+                    {
+                        ResourceKey = bucket.ResourceKey,
+                        ResourceName = bucket.ResourceName,
+                        ResourceType = bucket.ResourceType,
+                        ModCount = bucket.OrderedModNames.Count,
+                        RowSubtitle = BuildRowSubtitle(bucket, activeIndex, isRuleOverride),
+                        UsedInGameMod = bucket.OrderedModNames[activeIndex],
+                        ActiveModIndex = activeIndex,
+                        IsRuleOverride = isRuleOverride,
+                        OverriddenCount = overriddenMods.Count,
+                        OverriddenPreview = BuildOverriddenPreview(overriddenMods),
+                        OverriddenModsDisplay = string.Join(", ", overriddenMods),
+                        OverriddenMods = overriddenMods,
+                        LoadOrderPath = string.Join(" -> ", bucket.OrderedModNames),
+                        ConflictStatus = BuildConflictStatus(bucket, activeIndex),
+                        OrderedMods = bucket.OrderedModNames.ToList()
+                    };
                 })
                 .OrderByDescending(entry => entry.ModCount)
                 .ThenBy(entry => entry.ResourceType, StringComparer.OrdinalIgnoreCase)
@@ -197,16 +224,41 @@ namespace Flurry.Manager.Windows
                 .ToList();
         }
 
-        private static string BuildOverriddenPreview(IList<string> orderedModNames)
+        private static bool TryResolveRuleOverrideIndex(ConflictBucket bucket, IDictionary<string, string> assetOverrideRules, out int index)
         {
-            int overriddenCount = orderedModNames.Count - 1;
+            index = -1;
+            if (bucket == null || bucket.OrderedModNames == null || bucket.OrderedModNames.Count == 0)
+            {
+                return false;
+            }
+
+            if (!ConflictAssetOverrideRules.TryGetPreferredMod(assetOverrideRules, bucket.ResourceKey, out string preferredMod))
+            {
+                return false;
+            }
+
+            for (int i = bucket.OrderedModNames.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(bucket.OrderedModNames[i], preferredMod, StringComparison.OrdinalIgnoreCase))
+                {
+                    index = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string BuildOverriddenPreview(IList<string> overriddenModNames)
+        {
+            int overriddenCount = overriddenModNames?.Count ?? 0;
             if (overriddenCount <= 0)
             {
                 return string.Empty;
             }
 
             const int previewCount = 2;
-            List<string> overridden = orderedModNames.Take(overriddenCount).ToList();
+            List<string> overridden = overriddenModNames.Take(overriddenCount).ToList();
             if (overriddenCount <= previewCount)
             {
                 return string.Join(", ", overridden);
@@ -220,7 +272,7 @@ namespace Flurry.Manager.Windows
                 overriddenCount - previewCount);
         }
 
-        private static string BuildConflictStatus(ConflictBucket bucket)
+        private static string BuildConflictStatus(ConflictBucket bucket, int activeIndex)
         {
             if (bucket == null)
             {
@@ -232,8 +284,8 @@ namespace Flurry.Manager.Windows
                 return "Includes disabled mods";
             }
 
-            ModActionKind finalAction = bucket.OrderedActions.Count > 0
-                ? bucket.OrderedActions[bucket.OrderedActions.Count - 1]
+            ModActionKind finalAction = (bucket.OrderedActions.Count > activeIndex && activeIndex >= 0)
+                ? bucket.OrderedActions[activeIndex]
                 : ModActionKind.None;
 
             if (finalAction == ModActionKind.Merge)
@@ -249,20 +301,21 @@ namespace Flurry.Manager.Windows
             return "Conflict";
         }
 
-        private static string BuildRowSubtitle(ConflictBucket bucket)
+        private static string BuildRowSubtitle(ConflictBucket bucket, int activeIndex, bool isRuleOverride)
         {
             if (bucket == null || bucket.OrderedModNames.Count == 0)
             {
                 return "No load-order data";
             }
 
-            string activeMod = bucket.OrderedModNames[bucket.OrderedModNames.Count - 1];
+            string activeMod = bucket.OrderedModNames[Math.Max(0, Math.Min(activeIndex, bucket.OrderedModNames.Count - 1))];
             int replacedCount = Math.Max(0, bucket.OrderedModNames.Count - 1);
             return string.Format(
                 CultureInfo.InvariantCulture,
-                "Used: {0}  |  Replaced: {1}",
+                "Active: {0}  |  Overridden mods: {1}{2}",
                 activeMod,
-                replacedCount);
+                replacedCount,
+                isRuleOverride ? "  |  Rule Override" : string.Empty);
         }
 
         private static ModActionKind DetermineActionKind(BaseModResource resource)
@@ -466,6 +519,8 @@ namespace Flurry.Manager.Windows
         private readonly Func<List<MM.FrostyAppliedMod>> appliedModsProvider;
         private readonly Func<string, int, bool> moveModInLoadOrder;
         private readonly Func<string, bool> setModAsActiveInLoadOrder;
+        private readonly string packName;
+        private Dictionary<string, string> assetOverrideRules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly ObservableCollection<ModConflictPairEntry> entries = new ObservableCollection<ModConflictPairEntry>();
         private readonly ObservableCollection<ModConflictFileEntry> affectedFiles = new ObservableCollection<ModConflictFileEntry>();
         private readonly ObservableCollection<ModLoadOrderViewItem> loadOrderItems = new ObservableCollection<ModLoadOrderViewItem>();
@@ -488,14 +543,17 @@ namespace Flurry.Manager.Windows
         private readonly Button moveEarlierButton;
         private readonly Button moveLaterButton;
         private readonly Button setActiveButton;
+        private readonly Button resetRuleButton;
         private readonly Brush advancedTextBrush;
         private readonly Brush activeFlowBrush;
         private readonly Brush mergedFlowBrush;
         private readonly Brush replacedFlowBrush;
         private readonly Brush disabledFlowBrush;
+        public string PackName => packName;
 
         public ModConflictWindow(
             MM.MainWindow owner,
+            string packName,
             Func<List<MM.FrostyAppliedMod>> appliedModsProvider,
             Func<string, int, bool> moveModInLoadOrder,
             Func<string, bool> setModAsActiveInLoadOrder)
@@ -503,6 +561,8 @@ namespace Flurry.Manager.Windows
             this.appliedModsProvider = appliedModsProvider;
             this.moveModInLoadOrder = moveModInLoadOrder;
             this.setModAsActiveInLoadOrder = setModAsActiveInLoadOrder;
+            this.packName = string.IsNullOrWhiteSpace(packName) ? "Default" : packName;
+            assetOverrideRules = ConflictAssetOverrideRules.LoadPackRules(this.packName);
 
             Title = "Applied Mod Conflicts";
             Width = 1220;
@@ -725,7 +785,7 @@ namespace Flurry.Manager.Windows
 
             detailsGrid.Children.Add(new TextBlock
             {
-                Text = "Selected Mods",
+                Text = "Selected Conflict",
                 FontSize = 13,
                 FontWeight = FontWeights.SemiBold,
                 Margin = new Thickness(0, 0, 0, 4)
@@ -827,7 +887,7 @@ namespace Flurry.Manager.Windows
 
             selectedUsedInGameText = new TextBlock
             {
-                Text = "Used in game: -",
+                Text = "Active mod: -",
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 3),
                 FontWeight = FontWeights.SemiBold,
@@ -857,18 +917,19 @@ namespace Flurry.Manager.Windows
 
             selectedOverriddenPreviewText = new TextBlock
             {
-                Text = "Shared with: -",
+                Text = string.Empty,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 4),
                 Opacity = 0.95,
-                Foreground = replacedFlowBrush
+                Foreground = replacedFlowBrush,
+                Visibility = Visibility.Collapsed
             };
             Grid.SetRow(selectedOverriddenPreviewText, 9);
             detailsGrid.Children.Add(selectedOverriddenPreviewText);
 
             TextBlock resolutionHeaderText = new TextBlock
             {
-                Text = "Load Order Resolution",
+                Text = "Choose Active Mod",
                 Margin = new Thickness(0, 4, 0, 3),
                 FontWeight = FontWeights.SemiBold
             };
@@ -877,7 +938,7 @@ namespace Flurry.Manager.Windows
 
             loadOrderHintText = new TextBlock
             {
-                Text = "Top items are overridden by lower items. Select a mod below to adjust load order for this file.",
+                Text = "Lower items override higher items. Select a mod below and apply it for this asset.",
                 Margin = new Thickness(0, 0, 0, 4),
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = advancedTextBrush,
@@ -952,12 +1013,22 @@ namespace Flurry.Manager.Windows
 
             setActiveButton = new Button
             {
-                Content = "Set As Active",
-                MinWidth = 105,
+                Content = "Use This Mod for Asset",
+                MinWidth = 170,
                 IsEnabled = false
             };
             setActiveButton.Click += (s, e) => ResolveSetAsActive();
             resolutionButtonsRow.Children.Add(setActiveButton);
+
+            resetRuleButton = new Button
+            {
+                Content = "Reset to Load Order",
+                MinWidth = 145,
+                Margin = new Thickness(6, 0, 0, 0),
+                IsEnabled = false
+            };
+            resetRuleButton.Click += (s, e) => ResolveResetRule();
+            resolutionButtonsRow.Children.Add(resetRuleButton);
 
             statusText = new TextBlock
             {
@@ -983,9 +1054,11 @@ namespace Flurry.Manager.Windows
 
             int scannedMods;
             int scannedAssets;
+            assetOverrideRules = ConflictAssetOverrideRules.LoadPackRules(packName);
             List<ModConflictViewEntry> assetEntries = ModConflictAnalyzer.Build(
                 appliedMods,
                 enabledOnlyCheckBox.IsChecked.GetValueOrDefault(),
+                assetOverrideRules,
                 out scannedMods,
                 out scannedAssets);
 
@@ -1048,8 +1121,7 @@ namespace Flurry.Manager.Windows
                     ? assetEntry.OrderedMods[assetEntry.OrderedMods.Count - 1]
                     : assetEntry.UsedInGameMod;
 
-                IEnumerable<string> overriddenMods = assetEntry.OrderedMods
-                    .Take(assetEntry.OrderedMods.Count - 1)
+                IEnumerable<string> overriddenMods = (assetEntry.OverriddenMods ?? Array.Empty<string>())
                     .Where(modName => !string.IsNullOrWhiteSpace(modName))
                     .Distinct(StringComparer.OrdinalIgnoreCase);
 
@@ -1130,7 +1202,7 @@ namespace Flurry.Manager.Windows
                         OverwrittenCount = bucket.OverwrittenCount,
                         MergedCount = bucket.MergedCount,
                         DisabledCount = bucket.DisabledCount,
-                        RowTitle = (bucket.WinnerMod ?? "(Unknown)") + " vs " + (bucket.OtherMod ?? "(Unknown)"),
+                        RowTitle = "Active: " + (bucket.WinnerMod ?? "(Unknown)") + "  |  Overridden: " + (bucket.OtherMod ?? "(Unknown)"),
                         RowSubtitle = string.Format(
                             CultureInfo.InvariantCulture,
                             "{0} shared files  |  Overwritten {1}  |  Merged {2}",
@@ -1256,7 +1328,8 @@ namespace Flurry.Manager.Windows
             ModConflictFileEntry selectedFile = affectedFilesListView.SelectedItem as ModConflictFileEntry;
 
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Mods: " + (selectedPair.WinnerMod ?? "(Unknown)") + " vs " + (selectedPair.OtherMod ?? "(Unknown)"));
+            sb.AppendLine("Active Mod: " + (selectedPair.WinnerMod ?? "(Unknown)"));
+            sb.AppendLine("Overridden Mod: " + (selectedPair.OtherMod ?? "(Unknown)"));
             sb.AppendLine("Shared Files: " + selectedPair.SharedAssetCount.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("Overwritten: " + selectedPair.OverwrittenCount.ToString(CultureInfo.InvariantCulture));
             sb.AppendLine("Merged: " + selectedPair.MergedCount.ToString(CultureInfo.InvariantCulture));
@@ -1298,7 +1371,8 @@ namespace Flurry.Manager.Windows
 
             IReadOnlyList<ModConflictFileEntry> files = selectedPair.Files ?? Array.Empty<ModConflictFileEntry>();
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("Mods: " + (selectedPair.WinnerMod ?? "(Unknown)") + " vs " + (selectedPair.OtherMod ?? "(Unknown)"));
+            sb.AppendLine("Active Mod: " + (selectedPair.WinnerMod ?? "(Unknown)"));
+            sb.AppendLine("Overridden Mod: " + (selectedPair.OtherMod ?? "(Unknown)"));
             sb.AppendLine("Affected Files (" + files.Count.ToString(CultureInfo.InvariantCulture) + "):");
 
             for (int i = 0; i < files.Count; i++)
@@ -1335,7 +1409,7 @@ namespace Flurry.Manager.Windows
 
             selectedPairText.Text = string.Format(
                 CultureInfo.InvariantCulture,
-                "Winner: {0}  |  Compared: {1}  |  Shared files: {2}",
+                "Active Mod: {0}  |  Overridden Mod: {1}  |  Shared files: {2}",
                 selectedPair.WinnerMod,
                 selectedPair.OtherMod,
                 selectedPair.SharedAssetCount);
@@ -1371,27 +1445,29 @@ namespace Flurry.Manager.Windows
             if (selectedPair == null || selectedFile == null || selectedFile.SourceConflict == null)
             {
                 selectedAssetText.Text = "Asset: (select a file)";
-                selectedUsedInGameText.Text = "Used in game: -";
+                selectedUsedInGameText.Text = "Active mod: -";
                 selectedStatusText.Text = "Status: -";
                 selectedStatusText.Foreground = advancedTextBrush;
                 selectedImpactText.Text = "Summary: -";
-                selectedOverriddenPreviewText.Text = "Shared with: -";
-                loadOrderHintText.Text = "Select a file to inspect and resolve load order.";
+                selectedOverriddenPreviewText.Text = string.Empty;
+                loadOrderHintText.Text = "Select a file to inspect and choose which mod should be active for this asset.";
                 UpdateResolutionButtonsState();
                 return;
             }
 
             ModConflictViewEntry source = selectedFile.SourceConflict;
             selectedAssetText.Text = "Asset: " + selectedFile.DisplayName;
-            selectedUsedInGameText.Text = "Used in game: " + source.UsedInGameMod;
-            selectedStatusText.Text = "Status: " + selectedFile.Outcome;
+            selectedUsedInGameText.Text = source.IsRuleOverride
+                ? "Active mod: " + source.UsedInGameMod + " (Rule Override)"
+                : "Active mod: " + source.UsedInGameMod + " (Load Order)";
+            selectedStatusText.Text = "Status: " + selectedFile.Outcome + (source.IsRuleOverride ? " | Rule Override" : " | Load Order");
 
             if (string.Equals(selectedFile.Outcome, "Merged", StringComparison.OrdinalIgnoreCase))
             {
                 selectedStatusText.Foreground = mergedFlowBrush;
                 selectedImpactText.Text = string.Format(
                     CultureInfo.InvariantCulture,
-                    "Summary: {0} merges changes while still being used in game.",
+                    "Summary: {0} is active and this asset merges changes.",
                     source.UsedInGameMod);
             }
             else if (string.Equals(selectedFile.Outcome, "Disabled", StringComparison.OrdinalIgnoreCase))
@@ -1404,21 +1480,21 @@ namespace Flurry.Manager.Windows
                 selectedStatusText.Foreground = replacedFlowBrush;
                 selectedImpactText.Text = string.Format(
                     CultureInfo.InvariantCulture,
-                    "Summary: {0} overwrites {1} for this file.",
+                    "Summary: {0} overrides {1} for this asset.",
                     selectedPair.WinnerMod,
                     selectedPair.OtherMod);
             }
 
-            selectedOverriddenPreviewText.Text = "Shared with: " + selectedPair.OtherMod;
+            selectedOverriddenPreviewText.Text = string.Empty;
             loadOrderHintText.Text = string.Format(
                 CultureInfo.InvariantCulture,
-                "Type: {0} | Use the list below to change order. Note: this affects the full pack.",
+                "Type: {0} | \"Use This Mod for Asset\" saves a per-asset rule. Move buttons still change full pack load order.",
                 source.ResourceType);
 
             IReadOnlyList<string> orderedMods = source.OrderedMods ?? Array.Empty<string>();
             for (int i = 0; i < orderedMods.Count; i++)
             {
-                bool isActive = (i == orderedMods.Count - 1);
+                bool isActive = (i == source.ActiveModIndex);
                 loadOrderItems.Add(new ModLoadOrderViewItem
                 {
                     ModName = orderedMods[i],
@@ -1428,14 +1504,19 @@ namespace Flurry.Manager.Windows
                         "{0}. {1} {2}",
                         i + 1,
                         orderedMods[i],
-                        isActive ? "[ACTIVE]" : "[REPLACED]"),
+                        isActive ? "[ACTIVE]" : "[OVERRIDDEN]"),
                     ForegroundBrush = isActive ? activeFlowBrush : replacedFlowBrush
                 });
             }
 
             if (loadOrderItems.Count > 0)
             {
-                loadOrderListView.SelectedIndex = loadOrderItems.Count - 1;
+                int selectedIndex = source.ActiveModIndex;
+                if (selectedIndex < 0 || selectedIndex >= loadOrderItems.Count)
+                {
+                    selectedIndex = loadOrderItems.Count - 1;
+                }
+                loadOrderListView.SelectedIndex = selectedIndex;
             }
 
             UpdateResolutionButtonsState();
@@ -1489,61 +1570,91 @@ namespace Flurry.Manager.Windows
             ModConflictPairEntry selectedPair = conflictListView.SelectedItem as ModConflictPairEntry;
             ModConflictFileEntry selectedFile = affectedFilesListView.SelectedItem as ModConflictFileEntry;
             ModLoadOrderViewItem selectedMod = loadOrderListView.SelectedItem as ModLoadOrderViewItem;
-            if (selectedPair == null || selectedFile == null || selectedMod == null)
+            if (selectedPair == null || selectedFile == null || selectedFile.SourceConflict == null || selectedMod == null)
             {
                 statusText.Text = "Select a mod pair, file, and load-order mod first.";
                 return;
             }
 
-            if (selectedMod.IsActive)
+            string resourceKey = GetRuleKey(selectedFile.SourceConflict);
+            if (string.IsNullOrWhiteSpace(resourceKey))
             {
-                statusText.Text = "That mod is already active for this file.";
+                statusText.Text = "Unable to determine rule key for this asset.";
                 return;
             }
 
-            if (setModAsActiveInLoadOrder == null)
+            bool hasExistingRule = ConflictAssetOverrideRules.TryGetPreferredMod(assetOverrideRules, resourceKey, out string existingPreferredMod);
+            if (selectedMod.IsActive
+                && hasExistingRule
+                && string.Equals(existingPreferredMod, selectedMod.ModName, StringComparison.OrdinalIgnoreCase))
             {
-                statusText.Text = "Load-order editing is unavailable in this build.";
+                statusText.Text = "That asset rule is already set.";
                 return;
             }
 
-            bool moved;
-            try
+            bool changed = ConflictAssetOverrideRules.SetRule(packName, resourceKey, selectedMod.ModName);
+            if (!changed)
             {
-                moved = setModAsActiveInLoadOrder(selectedMod.ModName);
-            }
-            catch (Exception ex)
-            {
-                App.Logger.LogWarning("Set As Active failed: " + ex.Message);
-                statusText.Text = "Unable to set that mod as active in the current load order.";
+                statusText.Text = "That asset rule is already set.";
                 return;
             }
 
-            if (!moved)
-            {
-                statusText.Text = "Unable to set that mod as active in the current load order.";
-                return;
-            }
-
-            statusText.Text = selectedMod.ModName + " is now the active mod in load order.";
+            assetOverrideRules[resourceKey] = selectedMod.ModName;
+            statusText.Text = selectedMod.ModName + " is now set as active for this asset.";
             RefreshFromSourceInternal(GetPairIdentity(selectedPair), GetFileIdentity(selectedFile), selectedMod.ModName);
+        }
+
+        private void ResolveResetRule()
+        {
+            ModConflictPairEntry selectedPair = conflictListView.SelectedItem as ModConflictPairEntry;
+            ModConflictFileEntry selectedFile = affectedFilesListView.SelectedItem as ModConflictFileEntry;
+            if (selectedPair == null || selectedFile == null || selectedFile.SourceConflict == null)
+            {
+                statusText.Text = "Select a mod pair and file first.";
+                return;
+            }
+
+            string resourceKey = GetRuleKey(selectedFile.SourceConflict);
+            if (string.IsNullOrWhiteSpace(resourceKey))
+            {
+                statusText.Text = "Unable to determine rule key for this asset.";
+                return;
+            }
+
+            bool changed = ConflictAssetOverrideRules.ClearRule(packName, resourceKey);
+            if (!changed)
+            {
+                statusText.Text = "No asset rule exists for this file.";
+                return;
+            }
+
+            assetOverrideRules.Remove(resourceKey);
+            statusText.Text = "Asset rule cleared. Load order now decides the active mod.";
+            RefreshFromSourceInternal(GetPairIdentity(selectedPair), GetFileIdentity(selectedFile), null);
         }
 
         private void UpdateResolutionButtonsState()
         {
             ModLoadOrderViewItem selectedMod = loadOrderListView.SelectedItem as ModLoadOrderViewItem;
+            ModConflictFileEntry selectedFile = affectedFilesListView.SelectedItem as ModConflictFileEntry;
+            bool hasSelectedSource = selectedFile != null && selectedFile.SourceConflict != null;
             if (selectedMod == null)
             {
                 moveEarlierButton.IsEnabled = false;
                 moveLaterButton.IsEnabled = false;
                 setActiveButton.IsEnabled = false;
+                resetRuleButton.IsEnabled = hasSelectedSource && ConflictAssetOverrideRules.TryGetPreferredMod(assetOverrideRules, GetRuleKey(selectedFile.SourceConflict), out _);
                 return;
             }
 
             int index = loadOrderItems.IndexOf(selectedMod);
             moveEarlierButton.IsEnabled = moveModInLoadOrder != null && index > 0;
             moveLaterButton.IsEnabled = moveModInLoadOrder != null && index >= 0 && index < loadOrderItems.Count - 1;
-            setActiveButton.IsEnabled = setModAsActiveInLoadOrder != null && !selectedMod.IsActive;
+            string existingPreferredMod = string.Empty;
+            bool hasExistingRule = hasSelectedSource && ConflictAssetOverrideRules.TryGetPreferredMod(assetOverrideRules, GetRuleKey(selectedFile.SourceConflict), out existingPreferredMod);
+            bool activeAlreadyPinned = hasExistingRule && string.Equals(existingPreferredMod, selectedMod.ModName, StringComparison.OrdinalIgnoreCase);
+            setActiveButton.IsEnabled = hasSelectedSource && !activeAlreadyPinned;
+            resetRuleButton.IsEnabled = hasSelectedSource && ConflictAssetOverrideRules.TryGetPreferredMod(assetOverrideRules, GetRuleKey(selectedFile.SourceConflict), out _);
         }
 
         private string GetSelectedPairIdentity()
@@ -1574,6 +1685,21 @@ namespace Flurry.Manager.Windows
             }
 
             return (entry.ResourceType ?? string.Empty) + "|" + (entry.ResourceName ?? string.Empty);
+        }
+
+        private static string GetRuleKey(ModConflictViewEntry entry)
+        {
+            if (entry == null)
+            {
+                return string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.ResourceKey))
+            {
+                return entry.ResourceKey;
+            }
+
+            return ConflictAssetOverrideRules.BuildResourceKey(entry.ResourceType, entry.ResourceName);
         }
 
         private static string GetFileIdentity(ModConflictFileEntry entry)

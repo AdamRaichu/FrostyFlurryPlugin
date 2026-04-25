@@ -34,13 +34,13 @@ namespace Flurry.Editor.Patches
                 return;
 
             bool anyVisible = false;
-            foreach (var item in __instance.Children)
+            foreach (var item in __instance.Children.ToList())
             {
                 if (!item.IsHidden) { anyVisible = true; break; }
             }
             if (anyVisible)
             {
-                foreach (var item in __instance.Children)
+                foreach (var item in __instance.Children.ToList())
                     UnhideRecursive(item);
             }
         }
@@ -48,7 +48,7 @@ namespace Flurry.Editor.Patches
         internal static void UnhideRecursive(FrostyPropertyGridItemData item)
         {
             item.IsHidden = false;
-            foreach (var child in item.Children)
+            foreach (var child in item.Children.ToList())
                 UnhideRecursive(child);
         }
     }
@@ -69,7 +69,7 @@ namespace Flurry.Editor.Patches
 
             // Check searchable value text of each child against filter
             bool anyNewMatch = false;
-            foreach (var item in __instance.Children)
+            foreach (var item in __instance.Children.ToList())
             {
                 if (!item.IsHidden) continue;
 
@@ -90,13 +90,13 @@ namespace Flurry.Editor.Patches
             if (!__result && __instance.IsArrayChild)
             {
                 bool anyVisible = false;
-                foreach (var item in __instance.Children)
+                foreach (var item in __instance.Children.ToList())
                 {
                     if (!item.IsHidden) { anyVisible = true; break; }
                 }
                 if (anyVisible)
                 {
-                    foreach (var item in __instance.Children)
+                    foreach (var item in __instance.Children.ToList())
                         FilterGuidSiblingPatch.UnhideRecursive(item);
                 }
             }

@@ -326,6 +326,49 @@ namespace Flurry.Editor.Patches
 
             App.Logger.Log($"Smart Duplicate complete: {duplicated} extra assets duplicated, {failed} failed.");
             App.EditorWindow.DataExplorer.RefreshAll();
+            PromptToSaveProjectAfterDuplication(duplicated, failed);
+        }
+
+        private static void PromptToSaveProjectAfterDuplication(int duplicated, int failed)
+        {
+            if (duplicated <= 0)
+                return;
+
+            try
+            {
+                Window mainWindow = Application.Current?.MainWindow;
+                if (mainWindow == null)
+                    return;
+
+                MethodInfo promptMethod = mainWindow.GetType().GetMethod(
+                    "AskIfShouldSaveProject",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null,
+                    new[] { typeof(bool) },
+                    null);
+
+                if (promptMethod == null)
+                {
+                    App.Logger.LogWarning("Smart Duplicate: Could not find AskIfShouldSaveProject on main window.");
+                    return;
+                }
+
+                string details = failed > 0
+                    ? $" ({failed} failed)"
+                    : string.Empty;
+
+                MessageBoxResult result = FrostyMessageBox.Show(
+                    $"Smart Duplicate finished.\n\nDuplicated {duplicated} asset(s){details}.\n\nSave project now?",
+                    "Smart Duplicate",
+                    MessageBoxButton.YesNo);
+
+                if (result == MessageBoxResult.Yes)
+                    promptMethod.Invoke(mainWindow, new object[] { false });
+            }
+            catch (Exception ex)
+            {
+                App.Logger.LogWarning($"Smart Duplicate: Save prompt failed: {ex.Message}");
+            }
         }
 
         // ===================================================================
@@ -579,83 +622,71 @@ namespace Flurry.Editor.Patches
         /// </summary>
         internal static int RewriteReferences(object obj, Dictionary<Guid, Guid> guidMap)
         {
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            return RewriteReferencesInternal(obj, guidMap, visited);
+        }
+
+        private static int RewriteReferencesInternal(object obj, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        {
             if (obj == null)
                 return 0;
 
-            int count = 0;
             Type type = obj.GetType();
+            if (type == typeof(string) || type.IsPrimitive || type.IsEnum || type == typeof(Guid))
+                return 0;
+
+            if (!type.IsValueType && !visited.Add(obj))
+                return 0;
+
+            int count = 0;
+
+            if (obj is IList listObject)
+            {
+                return RewriteListReferences(listObject, guidMap, visited);
+            }
 
             foreach (PropertyInfo pi in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
-                if (!pi.CanRead || !pi.CanWrite)
-                    continue;
-
                 try
                 {
+                    if (!pi.CanRead || !pi.CanWrite || pi.GetIndexParameters().Length > 0)
+                        continue;
+
                     if (pi.PropertyType == typeof(PointerRef))
                     {
                         PointerRef pr = (PointerRef)pi.GetValue(obj);
-                        if (pr.Type == PointerRefType.External && guidMap.TryGetValue(pr.External.FileGuid, out Guid newGuid))
+                        if (TryRewritePointerRef(pr, guidMap, out PointerRef newPointer))
                         {
-                            EbxImportReference newRef = new EbxImportReference
-                            {
-                                FileGuid = newGuid,
-                                ClassGuid = pr.External.ClassGuid
-                            };
-                            pi.SetValue(obj, new PointerRef(newRef));
+                            pi.SetValue(obj, newPointer);
                             count++;
                         }
                     }
-                    else if (pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() == typeof(List<>))
+                    else
                     {
-                        Type elementType = pi.PropertyType.GetGenericArguments()[0];
+                        object value = pi.GetValue(obj);
+                        if (value == null)
+                            continue;
 
-                        if (elementType == typeof(PointerRef))
+                        int before = count;
+
+                        if (value is IList list)
                         {
-                            IList list = (IList)pi.GetValue(obj);
-                            if (list != null)
-                            {
-                                for (int i = 0; i < list.Count; i++)
-                                {
-                                    PointerRef pr = (PointerRef)list[i];
-                                    if (pr.Type == PointerRefType.External && guidMap.TryGetValue(pr.External.FileGuid, out Guid newGuid))
-                                    {
-                                        EbxImportReference newRef = new EbxImportReference
-                                        {
-                                            FileGuid = newGuid,
-                                            ClassGuid = pr.External.ClassGuid
-                                        };
-                                        list[i] = new PointerRef(newRef);
-                                        count++;
-                                    }
-                                }
-                            }
+                            count += RewriteListReferences(list, guidMap, visited);
                         }
-                        else if (!elementType.IsPrimitive && !elementType.IsEnum && elementType != typeof(string))
+                        else if (value is IDictionary dictionary)
                         {
-                            IList list = (IList)pi.GetValue(obj);
-                            if (list != null)
-                            {
-                                foreach (object item in list)
-                                {
-                                    if (item != null && !item.GetType().IsPrimitive)
-                                        count += RewriteReferences(item, guidMap);
-                                }
-                            }
+                            count += RewriteDictionaryReferences(dictionary, guidMap, visited);
                         }
-                    }
-                    else if (pi.PropertyType.IsClass && pi.PropertyType != typeof(string) && !pi.PropertyType.IsArray)
-                    {
-                        object child = pi.GetValue(obj);
-                        if (child != null)
-                            count += RewriteReferences(child, guidMap);
-                    }
-                    else if (pi.PropertyType.IsValueType && !pi.PropertyType.IsPrimitive && !pi.PropertyType.IsEnum
-                             && pi.PropertyType != typeof(Guid) && pi.PropertyType != typeof(PointerRef))
-                    {
-                        object child = pi.GetValue(obj);
-                        if (child != null)
-                            count += RewriteReferences(child, guidMap);
+                        else
+                        {
+                            count += RewriteReferencesInternal(value, guidMap, visited);
+                        }
+
+                        if (pi.PropertyType.IsValueType && count > before)
+                        {
+                            // Value-types are copied when read through reflection; write them back when changed.
+                            pi.SetValue(obj, value);
+                        }
                     }
                 }
                 catch
@@ -664,7 +695,160 @@ namespace Flurry.Editor.Patches
                 }
             }
 
+            foreach (FieldInfo fi in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+            {
+                try
+                {
+                    if (fi.IsInitOnly)
+                        continue;
+
+                    if (fi.FieldType == typeof(PointerRef))
+                    {
+                        PointerRef pr = (PointerRef)fi.GetValue(obj);
+                        if (TryRewritePointerRef(pr, guidMap, out PointerRef newPointer))
+                        {
+                            fi.SetValue(obj, newPointer);
+                            count++;
+                        }
+                    }
+                    else
+                    {
+                        object value = fi.GetValue(obj);
+                        if (value == null)
+                            continue;
+
+                        int before = count;
+
+                        if (value is IList list)
+                        {
+                            count += RewriteListReferences(list, guidMap, visited);
+                        }
+                        else if (value is IDictionary dictionary)
+                        {
+                            count += RewriteDictionaryReferences(dictionary, guidMap, visited);
+                        }
+                        else
+                        {
+                            count += RewriteReferencesInternal(value, guidMap, visited);
+                        }
+
+                        if (fi.FieldType.IsValueType && count > before)
+                        {
+                            // Value-types are copied when read through reflection; write them back when changed.
+                            fi.SetValue(obj, value);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Skip inaccessible fields
+                }
+            }
+
             return count;
+        }
+
+        private static int RewriteListReferences(IList list, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        {
+            int count = 0;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                try
+                {
+                    object item = list[i];
+                    if (item == null)
+                        continue;
+
+                    if (item is PointerRef pointer)
+                    {
+                        if (TryRewritePointerRef(pointer, guidMap, out PointerRef newPointer))
+                        {
+                            list[i] = newPointer;
+                            count++;
+                        }
+                        continue;
+                    }
+
+                    int before = count;
+                    count += RewriteReferencesInternal(item, guidMap, visited);
+
+                    if (item.GetType().IsValueType && count > before)
+                        list[i] = item;
+                }
+                catch
+                {
+                    // Skip inaccessible list values
+                }
+            }
+
+            return count;
+        }
+
+        private static int RewriteDictionaryReferences(IDictionary dictionary, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        {
+            int count = 0;
+            object[] keys = new object[dictionary.Keys.Count];
+            dictionary.Keys.CopyTo(keys, 0);
+
+            foreach (object key in keys)
+            {
+                try
+                {
+                    object value = dictionary[key];
+                    if (value == null)
+                        continue;
+
+                    if (value is PointerRef pointer)
+                    {
+                        if (TryRewritePointerRef(pointer, guidMap, out PointerRef newPointer))
+                        {
+                            dictionary[key] = newPointer;
+                            count++;
+                        }
+                        continue;
+                    }
+
+                    int before = count;
+                    count += RewriteReferencesInternal(value, guidMap, visited);
+
+                    if (value.GetType().IsValueType && count > before)
+                        dictionary[key] = value;
+                }
+                catch
+                {
+                    // Skip inaccessible dictionary values
+                }
+            }
+
+            return count;
+        }
+
+        private static bool TryRewritePointerRef(PointerRef pointer, Dictionary<Guid, Guid> guidMap, out PointerRef rewrittenPointer)
+        {
+            rewrittenPointer = pointer;
+            if (pointer.Type != PointerRefType.External)
+                return false;
+
+            if (!guidMap.TryGetValue(pointer.External.FileGuid, out Guid newGuid))
+                return false;
+
+            EbxImportReference newRef = new EbxImportReference
+            {
+                FileGuid = newGuid,
+                ClassGuid = pointer.External.ClassGuid
+            };
+
+            rewrittenPointer = new PointerRef(newRef);
+            return true;
+        }
+
+        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+        {
+            public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+
+            public new bool Equals(object x, object y) => ReferenceEquals(x, y);
+            public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
         }
     }
 }

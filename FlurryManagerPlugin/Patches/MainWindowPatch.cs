@@ -442,16 +442,27 @@ namespace Flurry.Manager.Patches
             {
                 if (existingWindow.IsVisible)
                 {
-                    existingWindow.RefreshFromSource();
-                    existingWindow.Activate();
-                    return;
+                    if (!string.Equals(existingWindow.PackName, selectedPack.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        existingWindow.Close();
+                        conflictWindows.Remove(mainWindow);
+                    }
+                    else
+                    {
+                        existingWindow.RefreshFromSource();
+                        existingWindow.Activate();
+                        return;
+                    }
                 }
-
-                conflictWindows.Remove(mainWindow);
+                else
+                {
+                    conflictWindows.Remove(mainWindow);
+                }
             }
 
             ModConflictWindow window = new ModConflictWindow(
                 mainWindow,
+                selectedPack.Name,
                 () =>
                 {
                     MM.FrostyPack currentPack = selectedPackRef(mainWindow);

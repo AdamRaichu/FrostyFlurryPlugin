@@ -17,6 +17,8 @@ namespace Flurry.Editor
         {
             ExtractEmbeddedMappings(logger);
 
+            FlurryLocalConfigRedirect.ApplyRuntimeRedirect(PluginManagerType.Editor);
+
             FlurryEditorConfig config = new FlurryEditorConfig();
             config.Load();
             Harmony.DEBUG = config.HarmonyDebug;

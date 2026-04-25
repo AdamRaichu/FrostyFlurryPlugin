@@ -1,6 +1,8 @@
 using Flurry.Editor.Windows;
+using DuplicationPlugin;
 using Frosty.Core;
 using Frosty.Core.Controls;
+using Frosty.Core.Viewport;
 using Frosty.Core.Windows;
 using FrostySdk;
 using FrostySdk.Ebx;
@@ -120,12 +122,16 @@ namespace Flurry.Editor.Patches
             }
 
             bool doRename = !string.IsNullOrEmpty(findText);
+            Dictionary<string, DuplicationTool.DuplicateAssetExtension> extensions = BuildDuplicationExtensions();
 
             int duplicated = 0;
             int failed = 0;
 
             FrostyTaskWindow.Show("Batch Duplicate", "", (task) =>
             {
+                if (!MeshVariationDb.IsLoaded)
+                    MeshVariationDb.LoadVariations(task);
+
                 for (int i = 0; i < entries.Count; i++)
                 {
                     EbxAssetEntry entry = entries[i];
@@ -167,7 +173,7 @@ namespace Flurry.Editor.Patches
                             continue;
                         }
 
-                        DuplicateAsset(entry, newName);
+                        DuplicateAsset(entry, newName, extensions);
                         duplicated++;
                     }
                     catch (Exception ex)
@@ -207,7 +213,48 @@ namespace Flurry.Editor.Patches
             return string.Join("/", first.Take(commonLength));
         }
 
-        private static EbxAssetEntry DuplicateAsset(EbxAssetEntry entry, string newName)
+        private static Dictionary<string, DuplicationTool.DuplicateAssetExtension> BuildDuplicationExtensions()
+        {
+            var extensions = new Dictionary<string, DuplicationTool.DuplicateAssetExtension>(StringComparer.OrdinalIgnoreCase);
+            Type extensionBaseType = typeof(DuplicationTool.DuplicateAssetExtension);
+            var assembly = extensionBaseType.Assembly;
+
+            foreach (Type type in assembly.GetTypes())
+            {
+                if (!type.IsSubclassOf(extensionBaseType) || type.IsAbstract)
+                    continue;
+
+                try
+                {
+                    var extension = (DuplicationTool.DuplicateAssetExtension)Activator.CreateInstance(type);
+                    if (extension?.AssetType != null && !extensions.ContainsKey(extension.AssetType))
+                        extensions.Add(extension.AssetType, extension);
+                }
+                catch
+                {
+                    // Ignore extensions that fail to instantiate; we'll fall back to EBX-only duplication.
+                }
+            }
+
+            return extensions;
+        }
+
+        private static EbxAssetEntry DuplicateAsset(EbxAssetEntry entry, string newName,
+            Dictionary<string, DuplicationTool.DuplicateAssetExtension> extensions)
+        {
+            foreach (var kvp in extensions)
+            {
+                if (TypeLibrary.IsSubClassOf(entry.Type, kvp.Key))
+                {
+                    return kvp.Value.DuplicateAsset(entry, newName, false, null);
+                }
+            }
+
+            // Fallback for asset types without a dedicated duplication extension.
+            return DuplicateEbxOnly(entry, newName);
+        }
+
+        private static EbxAssetEntry DuplicateEbxOnly(EbxAssetEntry entry, string newName)
         {
             EbxAsset asset = App.AssetManager.GetEbx(entry);
 

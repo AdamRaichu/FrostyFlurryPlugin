@@ -173,7 +173,7 @@ namespace Flurry.Editor
 
                         foreach (object obj in asset.Objects)
                         {
-                            if (RewriteReferences(obj, guidMap) > 0)
+                            if (Flurry.Editor.Patches.SmartDuplicateRefreshPatch.RewriteReferences(obj, guidMap) > 0)
                                 modified = true;
                         }
 
@@ -185,6 +185,7 @@ namespace Flurry.Editor
 
             App.Logger.Log($"Deep Duplicate complete: {duplicated} assets duplicated, {failed} failed.");
             App.EditorWindow.DataExplorer.RefreshAll();
+            PromptToSaveProjectAfterDuplication(duplicated, failed);
         });
 
         private static EbxAssetEntry DuplicateEbxAsset(EbxAssetEntry entry, string newName)
@@ -216,99 +217,46 @@ namespace Flurry.Editor
             return newEntry;
         }
 
-        /// <summary>
-        /// Walks all PointerRef fields in an object and replaces any external references
-        /// whose FileGuid is in the guidMap with the corresponding new GUID.
-        /// Returns the count of replaced references.
-        /// </summary>
-        private static int RewriteReferences(object obj, Dictionary<Guid, Guid> guidMap)
+        private static void PromptToSaveProjectAfterDuplication(int duplicated, int failed)
         {
-            if (obj == null)
-                return 0;
+            if (duplicated <= 0)
+                return;
 
-            int count = 0;
-            Type type = obj.GetType();
-
-            foreach (PropertyInfo pi in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            try
             {
-                if (!pi.CanRead || !pi.CanWrite)
-                    continue;
+                Window mainWindow = Application.Current?.MainWindow;
+                if (mainWindow == null)
+                    return;
 
-                try
-                {
-                    if (pi.PropertyType == typeof(PointerRef))
-                    {
-                        PointerRef pr = (PointerRef)pi.GetValue(obj);
-                        if (pr.Type == PointerRefType.External && guidMap.TryGetValue(pr.External.FileGuid, out Guid newGuid))
-                        {
-                            EbxImportReference newRef = new EbxImportReference
-                            {
-                                FileGuid = newGuid,
-                                ClassGuid = pr.External.ClassGuid
-                            };
-                            pi.SetValue(obj, new PointerRef(newRef));
-                            count++;
-                        }
-                    }
-                    else if (pi.PropertyType.IsGenericType && pi.PropertyType.GetGenericTypeDefinition() == typeof(List<>))
-                    {
-                        Type elementType = pi.PropertyType.GetGenericArguments()[0];
+                MethodInfo promptMethod = mainWindow.GetType().GetMethod(
+                    "AskIfShouldSaveProject",
+                    BindingFlags.Public | BindingFlags.Instance,
+                    null,
+                    new[] { typeof(bool) },
+                    null);
 
-                        if (elementType == typeof(PointerRef))
-                        {
-                            IList list = (IList)pi.GetValue(obj);
-                            if (list != null)
-                            {
-                                for (int i = 0; i < list.Count; i++)
-                                {
-                                    PointerRef pr = (PointerRef)list[i];
-                                    if (pr.Type == PointerRefType.External && guidMap.TryGetValue(pr.External.FileGuid, out Guid newGuid))
-                                    {
-                                        EbxImportReference newRef = new EbxImportReference
-                                        {
-                                            FileGuid = newGuid,
-                                            ClassGuid = pr.External.ClassGuid
-                                        };
-                                        list[i] = new PointerRef(newRef);
-                                        count++;
-                                    }
-                                }
-                            }
-                        }
-                        else if (!elementType.IsPrimitive && !elementType.IsEnum && elementType != typeof(string))
-                        {
-                            IList list = (IList)pi.GetValue(obj);
-                            if (list != null)
-                            {
-                                foreach (object item in list)
-                                {
-                                    if (item != null && !item.GetType().IsPrimitive)
-                                        count += RewriteReferences(item, guidMap);
-                                }
-                            }
-                        }
-                    }
-                    else if (pi.PropertyType.IsClass && pi.PropertyType != typeof(string) && !pi.PropertyType.IsArray)
-                    {
-                        object child = pi.GetValue(obj);
-                        if (child != null)
-                            count += RewriteReferences(child, guidMap);
-                    }
-                    else if (pi.PropertyType.IsValueType && !pi.PropertyType.IsPrimitive && !pi.PropertyType.IsEnum
-                             && pi.PropertyType != typeof(Guid) && pi.PropertyType != typeof(PointerRef))
-                    {
-                        object child = pi.GetValue(obj);
-                        if (child != null)
-                            count += RewriteReferences(child, guidMap);
-                    }
-                }
-                catch
+                if (promptMethod == null)
                 {
-                    // Skip inaccessible properties
+                    App.Logger.LogWarning("Deep Duplicate: Could not find AskIfShouldSaveProject on main window.");
+                    return;
                 }
+
+                string details = failed > 0
+                    ? $" ({failed} failed)"
+                    : string.Empty;
+
+                MessageBoxResult result = FrostyMessageBox.Show(
+                    $"Deep Duplicate finished.\n\nDuplicated {duplicated} asset(s){details}.\n\nSave project now?",
+                    "Deep Duplicate",
+                    MessageBoxButton.YesNo);
+
+                if (result == MessageBoxResult.Yes)
+                    promptMethod.Invoke(mainWindow, new object[] { false });
             }
-
-            return count;
+            catch (Exception ex)
+            {
+                App.Logger.LogWarning($"Deep Duplicate: Save prompt failed: {ex.Message}");
+            }
         }
     }
 }
