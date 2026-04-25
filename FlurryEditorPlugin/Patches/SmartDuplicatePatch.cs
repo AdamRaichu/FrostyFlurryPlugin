@@ -245,10 +245,13 @@ namespace Flurry.Editor.Patches
                     Dictionary<Guid, Guid> guidMap = new Dictionary<Guid, Guid>();
                     // Maps original FileGuid -> new asset name
                     Dictionary<Guid, string> nameMap = new Dictionary<Guid, string>();
+                    // Maps original root ClassGuid -> duplicated root ClassGuid
+                    Dictionary<Guid, Guid> classGuidMap = new Dictionary<Guid, Guid>();
 
                     // The mesh itself is already duplicated; record it in our maps
                     guidMap[originalMesh.Guid] = newMeshEntry.Guid;
                     nameMap[originalMesh.Guid] = newMeshEntry.Name;
+                    RegisterRootClassGuidMap(originalMesh, newMeshEntry, classGuidMap);
 
                     // ----------------------------------------------------------
                     // Find and duplicate parent Blueprints + Cloth assets
@@ -271,13 +274,14 @@ namespace Flurry.Editor.Patches
                             EbxAssetEntry newBp = DuplicateEbxAsset(bp, newBpName);
                             guidMap[bp.Guid] = newBp.Guid;
                             nameMap[bp.Guid] = newBp.Name;
+                            RegisterRootClassGuidMap(bp, newBp, classGuidMap);
                             duplicated++;
 
                             // For ClothObjectBlueprints, also duplicate cloth assets
                             if (bp.Type == "ClothObjectBlueprint")
                             {
                                 DuplicateClothDependencies(bp, destPath, oldPrefix, newPrefix,
-                                    guidMap, nameMap, task, ref duplicated, ref failed);
+                                    guidMap, nameMap, classGuidMap, task, ref duplicated, ref failed);
                             }
                         }
                         catch (Exception ex)
@@ -301,19 +305,23 @@ namespace Flurry.Editor.Patches
 
                             EbxAsset asset = App.AssetManager.GetEbx(entry);
                             bool modified = false;
+                            RewriteContext rewriteContext = new RewriteContext();
 
                             foreach (object obj in asset.Objects)
                             {
-                                if (RewriteReferences(obj, guidMap) > 0)
+                                if (RewriteReferences(obj, guidMap, classGuidMap, rewriteContext) > 0)
                                     modified = true;
                             }
 
                             if (modified)
                             {
-                                // Update dependencies list too
-                                entry.ModifiedEntry.DependentAssets.Clear();
-                                entry.ModifiedEntry.DependentAssets.AddRange(asset.Dependencies);
+                                // Ensure remapped external refs are represented in dependencies, even for metadata
+                                // that Frosty's automatic dependency scanner may not classify as references.
+                                foreach (Guid depGuid in rewriteContext.AddedDependencies)
+                                    asset.AddDependency(depGuid);
+
                                 App.AssetManager.ModifyEbx(entry.Name, asset);
+                                ApplyDependencyRemapToEntry(entry, rewriteContext.FileDependencyRemap);
                             }
                         }
                     }
@@ -396,7 +404,7 @@ namespace Flurry.Editor.Patches
         // ===================================================================
         private static void DuplicateClothDependencies(EbxAssetEntry clothBp, string destPath,
             string oldPrefix, string newPrefix,
-            Dictionary<Guid, Guid> guidMap, Dictionary<Guid, string> nameMap,
+            Dictionary<Guid, Guid> guidMap, Dictionary<Guid, string> nameMap, Dictionary<Guid, Guid> classGuidMap,
             FrostyTaskWindow task, ref int duplicated, ref int failed)
         {
             try
@@ -426,6 +434,7 @@ namespace Flurry.Editor.Patches
                         {
                             guidMap[clothEntry.Guid] = newCloth.Guid;
                             nameMap[clothEntry.Guid] = newCloth.Name;
+                            RegisterRootClassGuidMap(clothEntry, newCloth, classGuidMap);
                             duplicated++;
                         }
                     }
@@ -446,6 +455,7 @@ namespace Flurry.Editor.Patches
                         {
                             guidMap[wrapEntry.Guid] = newWrap.Guid;
                             nameMap[wrapEntry.Guid] = newWrap.Name;
+                            RegisterRootClassGuidMap(wrapEntry, newWrap, classGuidMap);
                             duplicated++;
                         }
                     }
@@ -455,6 +465,58 @@ namespace Flurry.Editor.Patches
             {
                 App.Logger.LogWarning($"Smart Duplicate: Failed to process cloth deps for {clothBp.Name}: {ex.Message}");
                 failed++;
+            }
+        }
+
+        private static void RegisterRootClassGuidMap(EbxAssetEntry originalEntry, EbxAssetEntry duplicatedEntry, Dictionary<Guid, Guid> classGuidMap)
+        {
+            if (originalEntry == null || duplicatedEntry == null || classGuidMap == null)
+                return;
+
+            try
+            {
+                EbxAsset originalAsset = App.AssetManager.GetEbx(originalEntry);
+                EbxAsset duplicatedAsset = App.AssetManager.GetEbx(duplicatedEntry);
+                if (originalAsset == null || duplicatedAsset == null)
+                    return;
+
+                Guid originalRootGuid = originalAsset.RootInstanceGuid;
+                Guid duplicatedRootGuid = duplicatedAsset.RootInstanceGuid;
+
+                if (originalRootGuid == Guid.Empty || duplicatedRootGuid == Guid.Empty || originalRootGuid == duplicatedRootGuid)
+                    return;
+
+                classGuidMap[originalRootGuid] = duplicatedRootGuid;
+            }
+            catch
+            {
+                // If root guid lookup fails for a type, continue without class-guid remapping for that asset.
+            }
+        }
+
+        private static void ApplyDependencyRemapToEntry(EbxAssetEntry entry, Dictionary<Guid, Guid> fileDependencyRemap)
+        {
+            if (entry?.ModifiedEntry == null || fileDependencyRemap == null || fileDependencyRemap.Count == 0)
+                return;
+
+            List<Guid> deps = entry.ModifiedEntry.DependentAssets;
+            for (int i = 0; i < deps.Count; i++)
+            {
+                if (fileDependencyRemap.TryGetValue(deps[i], out Guid remappedGuid))
+                    deps[i] = remappedGuid;
+            }
+
+            foreach (Guid remappedGuid in fileDependencyRemap.Values)
+            {
+                if (!deps.Contains(remappedGuid))
+                    deps.Add(remappedGuid);
+            }
+
+            var seen = new HashSet<Guid>();
+            for (int i = deps.Count - 1; i >= 0; i--)
+            {
+                if (!seen.Add(deps[i]))
+                    deps.RemoveAt(i);
             }
         }
 
@@ -617,16 +679,26 @@ namespace Flurry.Editor.Patches
 
         /// <summary>
         /// Walks all PointerRef fields in an object and replaces any external references
-        /// whose FileGuid is in the guidMap with the corresponding new GUID.
+        /// whose FileGuid and/or root ClassGuid are in the remap dictionaries.
         /// Returns the count of replaced references.
         /// </summary>
         internal static int RewriteReferences(object obj, Dictionary<Guid, Guid> guidMap)
         {
-            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-            return RewriteReferencesInternal(obj, guidMap, visited);
+            return RewriteReferences(obj, guidMap, null);
         }
 
-        private static int RewriteReferencesInternal(object obj, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        internal static int RewriteReferences(object obj, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap)
+        {
+            return RewriteReferences(obj, guidMap, classGuidMap, null);
+        }
+
+        private static int RewriteReferences(object obj, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap, RewriteContext rewriteContext)
+        {
+            var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            return RewriteReferencesInternal(obj, guidMap, classGuidMap, rewriteContext, visited);
+        }
+
+        private static int RewriteReferencesInternal(object obj, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap, RewriteContext rewriteContext, HashSet<object> visited)
         {
             if (obj == null)
                 return 0;
@@ -642,23 +714,23 @@ namespace Flurry.Editor.Patches
 
             if (obj is IList listObject)
             {
-                return RewriteListReferences(listObject, guidMap, visited);
+                return RewriteListReferences(listObject, guidMap, classGuidMap, rewriteContext, visited);
             }
 
-            foreach (PropertyInfo pi in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (PropertyInfo pi in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 try
                 {
-                    if (!pi.CanRead || !pi.CanWrite || pi.GetIndexParameters().Length > 0)
+                    if (!pi.CanRead || pi.GetIndexParameters().Length > 0)
                         continue;
 
                     if (pi.PropertyType == typeof(PointerRef))
                     {
                         PointerRef pr = (PointerRef)pi.GetValue(obj);
-                        if (TryRewritePointerRef(pr, guidMap, out PointerRef newPointer))
+                        if (TryRewritePointerRef(pr, guidMap, classGuidMap, rewriteContext, out PointerRef newPointer))
                         {
-                            pi.SetValue(obj, newPointer);
-                            count++;
+                            if (TrySetPropertyOrBackingField(obj, pi, newPointer))
+                                count++;
                         }
                     }
                     else
@@ -671,21 +743,21 @@ namespace Flurry.Editor.Patches
 
                         if (value is IList list)
                         {
-                            count += RewriteListReferences(list, guidMap, visited);
+                            count += RewriteListReferences(list, guidMap, classGuidMap, rewriteContext, visited);
                         }
                         else if (value is IDictionary dictionary)
                         {
-                            count += RewriteDictionaryReferences(dictionary, guidMap, visited);
+                            count += RewriteDictionaryReferences(dictionary, guidMap, classGuidMap, rewriteContext, visited);
                         }
                         else
                         {
-                            count += RewriteReferencesInternal(value, guidMap, visited);
+                            count += RewriteReferencesInternal(value, guidMap, classGuidMap, rewriteContext, visited);
                         }
 
                         if (pi.PropertyType.IsValueType && count > before)
                         {
                             // Value-types are copied when read through reflection; write them back when changed.
-                            pi.SetValue(obj, value);
+                            TrySetPropertyOrBackingField(obj, pi, value);
                         }
                     }
                 }
@@ -695,17 +767,17 @@ namespace Flurry.Editor.Patches
                 }
             }
 
-            foreach (FieldInfo fi in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+            foreach (FieldInfo fi in type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 try
                 {
-                    if (fi.IsInitOnly)
+                    if (fi.IsInitOnly || fi.IsStatic)
                         continue;
 
                     if (fi.FieldType == typeof(PointerRef))
                     {
                         PointerRef pr = (PointerRef)fi.GetValue(obj);
-                        if (TryRewritePointerRef(pr, guidMap, out PointerRef newPointer))
+                        if (TryRewritePointerRef(pr, guidMap, classGuidMap, rewriteContext, out PointerRef newPointer))
                         {
                             fi.SetValue(obj, newPointer);
                             count++;
@@ -721,15 +793,15 @@ namespace Flurry.Editor.Patches
 
                         if (value is IList list)
                         {
-                            count += RewriteListReferences(list, guidMap, visited);
+                            count += RewriteListReferences(list, guidMap, classGuidMap, rewriteContext, visited);
                         }
                         else if (value is IDictionary dictionary)
                         {
-                            count += RewriteDictionaryReferences(dictionary, guidMap, visited);
+                            count += RewriteDictionaryReferences(dictionary, guidMap, classGuidMap, rewriteContext, visited);
                         }
                         else
                         {
-                            count += RewriteReferencesInternal(value, guidMap, visited);
+                            count += RewriteReferencesInternal(value, guidMap, classGuidMap, rewriteContext, visited);
                         }
 
                         if (fi.FieldType.IsValueType && count > before)
@@ -748,7 +820,7 @@ namespace Flurry.Editor.Patches
             return count;
         }
 
-        private static int RewriteListReferences(IList list, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        private static int RewriteListReferences(IList list, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap, RewriteContext rewriteContext, HashSet<object> visited)
         {
             int count = 0;
 
@@ -762,7 +834,7 @@ namespace Flurry.Editor.Patches
 
                     if (item is PointerRef pointer)
                     {
-                        if (TryRewritePointerRef(pointer, guidMap, out PointerRef newPointer))
+                        if (TryRewritePointerRef(pointer, guidMap, classGuidMap, rewriteContext, out PointerRef newPointer))
                         {
                             list[i] = newPointer;
                             count++;
@@ -771,7 +843,7 @@ namespace Flurry.Editor.Patches
                     }
 
                     int before = count;
-                    count += RewriteReferencesInternal(item, guidMap, visited);
+                    count += RewriteReferencesInternal(item, guidMap, classGuidMap, rewriteContext, visited);
 
                     if (item.GetType().IsValueType && count > before)
                         list[i] = item;
@@ -785,7 +857,7 @@ namespace Flurry.Editor.Patches
             return count;
         }
 
-        private static int RewriteDictionaryReferences(IDictionary dictionary, Dictionary<Guid, Guid> guidMap, HashSet<object> visited)
+        private static int RewriteDictionaryReferences(IDictionary dictionary, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap, RewriteContext rewriteContext, HashSet<object> visited)
         {
             int count = 0;
             object[] keys = new object[dictionary.Keys.Count];
@@ -801,7 +873,7 @@ namespace Flurry.Editor.Patches
 
                     if (value is PointerRef pointer)
                     {
-                        if (TryRewritePointerRef(pointer, guidMap, out PointerRef newPointer))
+                        if (TryRewritePointerRef(pointer, guidMap, classGuidMap, rewriteContext, out PointerRef newPointer))
                         {
                             dictionary[key] = newPointer;
                             count++;
@@ -810,7 +882,7 @@ namespace Flurry.Editor.Patches
                     }
 
                     int before = count;
-                    count += RewriteReferencesInternal(value, guidMap, visited);
+                    count += RewriteReferencesInternal(value, guidMap, classGuidMap, rewriteContext, visited);
 
                     if (value.GetType().IsValueType && count > before)
                         dictionary[key] = value;
@@ -824,23 +896,101 @@ namespace Flurry.Editor.Patches
             return count;
         }
 
-        private static bool TryRewritePointerRef(PointerRef pointer, Dictionary<Guid, Guid> guidMap, out PointerRef rewrittenPointer)
+        private static bool TryRewritePointerRef(PointerRef pointer, Dictionary<Guid, Guid> guidMap, Dictionary<Guid, Guid> classGuidMap, RewriteContext rewriteContext, out PointerRef rewrittenPointer)
         {
             rewrittenPointer = pointer;
             if (pointer.Type != PointerRefType.External)
                 return false;
 
-            if (!guidMap.TryGetValue(pointer.External.FileGuid, out Guid newGuid))
+            Guid oldFileGuid = pointer.External.FileGuid;
+            Guid newFileGuid = pointer.External.FileGuid;
+            Guid newClassGuid = pointer.External.ClassGuid;
+            bool changed = false;
+
+            if (guidMap != null && guidMap.TryGetValue(pointer.External.FileGuid, out Guid remappedFileGuid)
+                && remappedFileGuid != newFileGuid)
+            {
+                newFileGuid = remappedFileGuid;
+                changed = true;
+            }
+
+            if (classGuidMap != null && classGuidMap.TryGetValue(pointer.External.ClassGuid, out Guid remappedClassGuid)
+                && remappedClassGuid != newClassGuid)
+            {
+                newClassGuid = remappedClassGuid;
+                changed = true;
+            }
+
+            if (!changed)
                 return false;
+
+            rewriteContext?.RegisterFileGuidChange(oldFileGuid, newFileGuid);
 
             EbxImportReference newRef = new EbxImportReference
             {
-                FileGuid = newGuid,
-                ClassGuid = pointer.External.ClassGuid
+                FileGuid = newFileGuid,
+                ClassGuid = newClassGuid
             };
 
             rewrittenPointer = new PointerRef(newRef);
             return true;
+        }
+
+        private static bool TrySetPropertyOrBackingField(object target, PropertyInfo property, object value)
+        {
+            try
+            {
+                if (property.CanWrite)
+                {
+                    property.SetValue(target, value);
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fall through to backing-field attempt.
+            }
+
+            try
+            {
+                string backingFieldName = $"<{property.Name}>k__BackingField";
+                FieldInfo backingField = target.GetType().GetField(
+                    backingFieldName,
+                    BindingFlags.NonPublic | BindingFlags.Instance);
+
+                if (backingField != null && !backingField.IsInitOnly && !backingField.IsStatic)
+                {
+                    backingField.SetValue(target, value);
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignore and report failure via return value.
+            }
+
+            return false;
+        }
+
+        private sealed class RewriteContext
+        {
+            public Dictionary<Guid, Guid> FileDependencyRemap { get; } = new Dictionary<Guid, Guid>();
+            public HashSet<Guid> AddedDependencies { get; } = new HashSet<Guid>();
+
+            public void RegisterFileGuidChange(Guid oldFileGuid, Guid newFileGuid)
+            {
+                if (oldFileGuid == Guid.Empty || newFileGuid == Guid.Empty)
+                    return;
+
+                if (oldFileGuid == newFileGuid)
+                {
+                    AddedDependencies.Add(newFileGuid);
+                    return;
+                }
+
+                FileDependencyRemap[oldFileGuid] = newFileGuid;
+                AddedDependencies.Add(newFileGuid);
+            }
         }
 
         private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
