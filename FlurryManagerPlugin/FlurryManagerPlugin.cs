@@ -30,6 +30,7 @@ namespace Flurry.Manager
             var harmony = new Harmony("io.github.adamraichu.frosty.flurry.manager");
             FileLog.Debug("[Flurry] Applying manager patches...");
             harmony.PatchCategory("flurry.manager");
+            FileLog.Debug("[Flurry] Applying exception box patches...");
         }
     }
 }
